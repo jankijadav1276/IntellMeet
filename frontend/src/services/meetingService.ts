@@ -1,37 +1,42 @@
-import type { Meeting, CreateMeetingRequest } from "../types"
-import api from "./api"
+import api from "./api";
 
 const meetingService = {
 
-  // Get all meetings for the logged in user
-  async getAllMeetings(): Promise<Meeting[]> {
-    const response = await api.get<Meeting[]>("/meetings")
-    return response.data
+  getMeetings: async () => {
+    const res = await api.get("/meetings");
+    return res.data;
   },
 
-  // Get one meeting by its ID
-  async getMeetingById(id: string): Promise<Meeting> {
-    const response = await api.get<Meeting>(`/meetings/${id}`)
-    return response.data
+  getMeetingById: async (id: string) => {
+    const res = await api.get(`/meetings/${id}`);
+    return res.data;
   },
 
-  // Create a new meeting
-  async createMeeting(data: CreateMeetingRequest): Promise<Meeting> {
-    const response = await api.post<Meeting>("/meetings", data)
-    return response.data
+  createMeeting: async (data: any) => {
+    const res = await api.post("/meetings", data);
+    return res.data;
   },
 
-  // Delete a meeting
-  async deleteMeeting(id: string): Promise<void> {
-    await api.delete(`/meetings/${id}`)
+  updateMeeting: async (id: string, data: any) => {
+    const res = await api.put(`/meetings/${id}`, data);
+    return res.data;
   },
 
-  // Get AI summary of a completed meeting
-  async getMeetingSummary(id: string) {
-    const response = await api.get(`/meetings/${id}/summary`)
-    return response.data
+  deleteMeeting: async (id: string) => {
+    const res = await api.delete(`/meetings/${id}`);
+    return res.data;
   },
 
-}
+  joinMeeting: async (id: string) => {
+    const res = await api.post(`/meetings/${id}/join`);
+    return res.data;
+  },
 
-export default meetingService
+  getMeetingSummary: async (id: string) => {
+    const res = await api.get(`/meetings/${id}/summary`);
+    return res.data;
+  }
+
+};
+
+export default meetingService;
