@@ -23,6 +23,9 @@ export interface SignupRequest {
 
 // What the backend sends BACK after login/signup
 export interface AuthResponse {
+  success: boolean
+  _id: string
+  name: string
+  email: string
   token: string
-  user: User
 }
