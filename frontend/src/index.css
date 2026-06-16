@@ -1,3 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root{
+  --background:#0f172a;
+  --surface:#1e293b;
+  --border:#334155;
+
+  --text-primary:#f8fafc;
+  --text-secondary:#94a3b8;
+
+  --primary:#6366f1;
+  --primary-hover:#4f46e5;
+
+  --success:#22c55e;
+  --danger:#ef4444;
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  font-family:"Inter",sans-serif;
+  background:var(--background);
+  color:var(--text-primary);
+  min-height:100vh;
+}
+
+html{
+  scroll-behavior:smooth;
+}
+
+button{
+  font-family:inherit;
+  cursor:pointer;
+}
+
+input,
+textarea{
+  font-family:inherit;
+}
+
+a{
+  text-decoration:none;
+  color:inherit;
+}
+
+
+@layer components{
+
+  .page-container{
+    @apply p-6 min-h-screen;
+  }
+
+
+  .card{
+    @apply rounded-xl border p-5;
+    background:var(--surface);
+    border-color:var(--border);
+  }
+
+
+  .title{
+    @apply text-2xl font-semibold;
+  }
+
+
+  .subtitle{
+    color:var(--text-secondary);
+    @apply text-sm;
+  }
+
+
+  .primary-btn{
+    @apply px-5 py-2 rounded-lg font-medium transition;
+    background:var(--primary);
+    color:white;
+  }
+
+
+  .primary-btn:hover{
+    background:var(--primary-hover);
+  }
+
+}
+
+
+::-webkit-scrollbar{
+  width:8px;
+}
+
+
+::-webkit-scrollbar-thumb{
+  background:#475569;
+  border-radius:10px;
+}
