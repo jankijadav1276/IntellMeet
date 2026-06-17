@@ -8,10 +8,10 @@ import connectDB from "./config/db";
 
 // Routes
 import authRoutes from "./routes/authRoutes";
-import meetingRoutes from "./routes/meetingRoutes";
+// import meetingRoutes from "./routes/meetingRoutes";
 
 // Socket
-import { initSocket } from "./socket/socket";
+// import { initSocket } from "./socket/socket";
 
 // Load Environment Variables
 dotenv.config();
@@ -25,7 +25,7 @@ const app = express();
 const server = http.createServer(app);
 
 // Initialize Socket.io
-initSocket(server);
+// initSocket(server);
 
 // Middleware
 app.use(express.json());
@@ -55,7 +55,7 @@ app.get("/test", (req: Request, res: Response) => {
 
 // API Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/meetings", meetingRoutes);
+// app.use("/api/meetings", meetingRoutes);
 
 // Handle Unknown Routes
 app.use((req: Request, res: Response) => {
