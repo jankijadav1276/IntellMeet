@@ -1,32 +1,63 @@
-import { Routes, Route, Navigate } from "react-router-dom"
-import LoginPage from "../pages/auth/LoginPage"
-import SignupPage from "../pages/auth/SignUpPage"
-import DashboardPage from "../pages/dashboard/DashboardPage"
-import MeetingsPage from "../pages/meetings/MeetingsPage"
-import MeetingRoomPage from "../pages/meetings/MeetingRoomPage"
-import PrivateRoute from "./PrivateRoute"
-import MeetingSummaryPage from "../pages/meetings/MeetingSummaryPage"
-import TeamPage from "../pages/team/TeamPage"
-import AnalyticsPage from "../pages/analytics/AnalyticsPage"
+import {Routes,Route} from "react-router-dom"
 
-export default function AppRoutes() {
-  return (
-    <Routes>
-      {/* Public */}
-      <Route path="/login"  element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
+import Dashboard from "../pages/dashboard/DashboardPage"
+import Meetings from "../pages/meetings/MeetingsPage"
+import MeetingRoom from "../pages/meetings/MeetingRoomPage"
 
-      {/* Protected */}
-      <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-      <Route path="/meetings" element={<PrivateRoute><MeetingsPage /></PrivateRoute>} />
-      <Route path="/meeting/:id" element={<PrivateRoute><MeetingRoomPage /></PrivateRoute>} />
+import ProfilePage from "../pages/profile/ProfilePage"
+import About from "../pages/profile/About"
+import EditProfile from "../pages/profile/EditProfilePage"
+import ChangePassword from "../pages/profile/ChangePasswordPage"
+import ManageSessions from "../pages/profile/ManageSessions"
+import DeleteAccount from "../pages/profile/DeleteAccount"
+import HelpSupport from "../pages/profile/HelpSupport"
+import PrivacyPolicy from "../pages/profile/PrivacyPolicy"
+import PrivacySecurity from "../pages/profile/PrivacySecurity"
+import TermsConditions from "../pages/profile/TermsConditions"
+import ProfileOverview from "../pages/profile/ProfileOverview"
 
-      {/* Stubs — will be built next */}
-    <Route path="/team" element={<PrivateRoute><TeamPage /></PrivateRoute>}/>
-      <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
-      <Route path="/profile"   element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-      <Route path="/meetings/:id/summary" element={<PrivateRoute><MeetingSummaryPage /></PrivateRoute>} />
-     <Route path="*" element={<Navigate to="/login" />} />
-    </Routes>
-  )
+export default function AppRoutes(){
+
+return(
+
+<Routes>
+
+<Route path="/" element={<Dashboard/>}/>
+
+<Route path="/dashboard" element={<Dashboard/>}/>
+
+<Route path="/meetings" element={<Meetings/>}/>
+
+<Route path="/meeting/:id" element={<MeetingRoom/>}/>
+
+
+<Route path="/profile" element={<ProfilePage/>}>
+
+<Route index element={<ProfileOverview/>}/>
+
+<Route path="about" element={<About/>}/>
+
+<Route path="edit" element={<EditProfile/>}/>
+
+<Route path="change-password" element={<ChangePassword/>}/>
+
+<Route path="sessions" element={<ManageSessions/>}/>
+
+<Route path="delete-account" element={<DeleteAccount/>}/>
+
+<Route path="help" element={<HelpSupport/>}/>
+
+<Route path="privacy-policy" element={<PrivacyPolicy/>}/>
+
+<Route path="privacy-security" element={<PrivacySecurity/>}/>
+
+<Route path="terms" element={<TermsConditions/>}/>
+
+</Route>
+
+
+</Routes>
+
+)
+
 }

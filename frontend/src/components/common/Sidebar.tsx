@@ -44,6 +44,7 @@ export default function Sidebar({
   mobileOpen,
   setMobileOpen
 }: any) {
+
   const navigate = useNavigate()
   const location = useLocation()
   const { user, handleLogout } = useAuth()
@@ -68,10 +69,11 @@ export default function Sidebar({
         ${mobileOpen ? "left-0" : "-left-full md:left-0"}
         ${collapsed ? "md:w-20" : "md:w-60"}
         w-60
-      `}
+        `}
       >
-        {/* Header */}
+
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+
           {!collapsed && (
             <div>
               <h1 className="text-lg font-semibold text-white">
@@ -95,97 +97,102 @@ export default function Sidebar({
             )}
           </button>
 
+
           <button
             className="md:hidden p-2 rounded-lg hover:bg-gray-800"
             onClick={() => setMobileOpen(false)}
           >
             ✕
           </button>
+
         </div>
 
-        {/* Navigation */}
+
         <nav className="flex-1 px-2 py-5 space-y-2">
-          {navItems.map(({ label, icon: Icon, path }) => {
+
+          {navItems.map(({label,icon:Icon,path})=>{
+
             const isActive = location.pathname === path
 
             return (
+
               <button
                 key={label}
-                onClick={() => {
+                onClick={()=>{
                   navigate(path)
                   setMobileOpen(false)
                 }}
-                className={`
-                  group
-                  relative
-                  w-full
-                  flex
-                  items-center
-                  gap-3
-                  px-3
-                  py-3
-                  rounded-xl
-                  text-sm
-                  transition-all
-                  duration-200
 
-                  ${
-                    isActive
-                      ? "bg-blue-600/15 text-blue-400 border border-blue-500/30"
-                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                  }
+                className={`
+                group
+                relative
+                w-full
+                flex
+                items-center
+                gap-3
+                px-3
+                py-3
+                rounded-xl
+                text-sm
+                transition-all
+
+                ${
+                  isActive
+                  ? "bg-blue-600/15 text-blue-400 border border-blue-500/30"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                }
                 `}
               >
-                {isActive && (
-                  <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-500" />
-                )}
 
-                <Icon className="w-5 h-5 transition group-hover:scale-110" />
+                {
+                  isActive && (
+                    <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-500"/>
+                  )
+                }
+
+
+                <Icon className="w-5 h-5"/>
+
 
                 {!collapsed && label}
 
-                {collapsed && (
-                  <span
-                    className="
-                    absolute
-                    left-16
-                    whitespace-nowrap
-                    bg-black
-                    text-white
-                    text-xs
-                    px-2
-                    py-1
-                    rounded-md
-                    opacity-0
-                    translate-x-2
-                    pointer-events-none
-                    group-hover:opacity-100
-                    group-hover:translate-x-0
-                    transition-all
-                  "
-                  >
-                    {label}
-                  </span>
-                )}
+
               </button>
+
             )
+
           })}
+
         </nav>
 
-        {/* User */}
+
+
         <div className="border-t border-gray-800 p-3">
+
+
           <div className="relative">
+
+
             <button
-              onClick={() => setProfileOpen(!profileOpen)}
+              onClick={()=>setProfileOpen(!profileOpen)}
               className="w-full flex items-center justify-between gap-3"
             >
+
               <div className="flex items-center gap-3">
+
                 <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white">
-                  {user?.name?.charAt(0).toUpperCase() ?? "U"}
+
+                  {
+                    user?.name?.charAt(0).toUpperCase() ?? "U"
+                  }
+
                 </div>
 
+
                 {!collapsed && (
+
                   <div className="text-left">
+
                     <p className="text-sm text-white">
                       {user?.name ?? "User"}
                     </p>
@@ -193,49 +200,112 @@ export default function Sidebar({
                     <p className="text-xs text-gray-400">
                       {user?.email ?? ""}
                     </p>
+
                   </div>
+
                 )}
+
               </div>
+
+
 
               {!collapsed && (
+
                 <ChevronDown
-                  className={`w-4 h-4 transition ${
-                    profileOpen ? "rotate-180" : ""
-                  }`}
+                  className={`
+                  w-4 h-4 transition
+                  ${profileOpen ? "rotate-180":""}
+                  `}
                 />
+
               )}
+
             </button>
 
-            {profileOpen && !collapsed && (
-              <div
-                className="
-                absolute
-                bottom-14
-                left-0
-                w-full
-                bg-gray-900
-                border
-                border-gray-800
-                rounded-xl
-                overflow-hidden
-                shadow-xl
-              "
-              >
-                <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-800">
-                  <User className="w-4 h-4" />
-                  Profile
-                </button>
 
-                <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-800">
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </button>
-              </div>
-            )}
+
+
+            {
+              profileOpen && !collapsed && (
+
+                <div
+                  className="
+                  absolute
+                  bottom-14
+                  left-0
+                  w-full
+                  bg-gray-900
+                  border
+                  border-gray-800
+                  rounded-xl
+                  overflow-hidden
+                  shadow-xl
+                  "
+                >
+
+
+                  <button
+
+                    onClick={()=>navigate("/profile")}
+
+                    className="
+                    w-full
+                    flex
+                    items-center
+                    gap-3
+                    px-4
+                    py-3
+                    hover:bg-gray-800
+                    "
+
+                  >
+
+                    <User className="w-4 h-4"/>
+
+                    Profile
+
+                  </button>
+
+
+
+                  <button
+
+                    onClick={()=>navigate("/settings")}
+
+                    className="
+                    w-full
+                    flex
+                    items-center
+                    gap-3
+                    px-4
+                    py-3
+                    hover:bg-gray-800
+                    "
+
+                  >
+
+                    <Settings className="w-4 h-4"/>
+
+                    Settings
+
+                  </button>
+
+
+                </div>
+
+              )
+            }
+
+
+
           </div>
 
+
+
           <button
+
             onClick={handleLogout}
+
             className="
             mt-3
             w-full
@@ -249,13 +319,22 @@ export default function Sidebar({
             text-gray-400
             hover:bg-gray-800
             hover:text-white
-          "
+            "
+
           >
-            <LogOut className="w-5 h-5" />
+
+            <LogOut className="w-5 h-5"/>
+
             {!collapsed && "Logout"}
+
           </button>
+
+
         </div>
+
+
       </aside>
+
     </>
   )
 }
