@@ -12,6 +12,25 @@ interface AuthState {
   isAuthenticated: () => boolean
 }
 
+const getStoredUser = (): User | null => {
+  try {
+    const storedUser = localStorage.getItem("user")
+    return storedUser ? JSON.parse(storedUser) : null
+  } catch (error) {
+    console.error("Failed to load user from storage:", error)
+    return null
+  }
+}
+
+const getStoredToken = (): string | null => {
+  try {
+    return localStorage.getItem("token")
+  } catch (error) {
+    console.error("Failed to load token from storage:", error)
+    return null
+  }
+}
+
 const useAuthStore = create<AuthState>((set, get) => ({
   user: JSON.parse(localStorage.getItem("user") || "null"),
   token: localStorage.getItem("token"),
@@ -27,12 +46,14 @@ const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   login: (user, token) => {
+    localStorage.setItem("user", JSON.stringify(user))
     localStorage.setItem("token", token)
     localStorage.setItem("user", JSON.stringify(user))
     set({ user, token })
   },
 
   logout: () => {
+    localStorage.removeItem("user")
     localStorage.removeItem("token")
     localStorage.removeItem("user")
     set({ user: null, token: null })

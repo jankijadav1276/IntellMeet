@@ -11,13 +11,17 @@ import { useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import meetingService from "../../services/meetingService"
 import useMeetingStore from "../../store/meetingStore"
+import useAuthStore from "../../store/authStore"
 import Layout from "../../components/common/Layout"
 import type { Meeting } from "../../types"
 
-export default function DashboardPage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { addMeeting } = useMeetingStore()
+export default function DashboardPage(){
+
+const navigate=useNavigate()
+const user=useAuthStore((state)=>state.user)
+
+const queryClient=useQueryClient()
+const {addMeeting}=useMeetingStore()
 
   const [showModal, setShowModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
@@ -74,9 +78,8 @@ export default function DashboardPage() {
     setFormError("")
   }
 
-  function handleCreateMeeting(e: React.FormEvent) {
-    e.preventDefault()
-    setFormError("")
+function handleCreateMeeting(e:React.FormEvent){
+e.preventDefault()
 
     if (!newMeeting.title.trim()) {
       setFormError("Title is required")
