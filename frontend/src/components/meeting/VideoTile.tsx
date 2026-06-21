@@ -4,10 +4,11 @@ import { MicOff, VideoOff } from "lucide-react"
 interface VideoTileProps {
   name: string
   isHost?: boolean
-  stream?: MediaStream | null   // real stream from useWebRTC
-  isLocal?: boolean             // true = this is your own tile (mirror it)
-  micOn?: boolean               // show muted indicator
-  cameraOn?: boolean            // show camera-off indicator
+  stream?: MediaStream | null
+  isLocal?: boolean
+  micOn?: boolean
+  cameraOn?: boolean
+  isActiveSpeaker?: boolean
 }
 
 export default function VideoTile({
@@ -17,6 +18,7 @@ export default function VideoTile({
   isLocal = false,
   micOn = true,
   cameraOn = true,
+  isActiveSpeaker = false,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -28,10 +30,15 @@ export default function VideoTile({
   }, [stream])
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl h-64 relative overflow-hidden">
-
+          <div
+        className={`bg-gray-900 rounded-xl h-64 relative overflow-hidden border transition ${
+          isActiveSpeaker
+            ? "border-green-500 shadow-lg shadow-green-500/20"
+            : "border-gray-800"
+        }`}
+>
       {/* Real video stream — shown when camera is on and stream exists */}
-      {stream && cameraOn ? (
+      {stream ? (
         <video
           ref={videoRef}
           autoPlay
@@ -55,7 +62,7 @@ export default function VideoTile({
       )}
 
       {/* Name + host label overlay — always visible at bottom left */}
-      {stream && cameraOn && (
+      {stream && (
         <div className="absolute bottom-2 left-3">
           <p className="text-white text-sm font-medium drop-shadow">{name}</p>
           {isHost && <p className="text-blue-400 text-xs">Host</p>}

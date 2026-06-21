@@ -1,73 +1,84 @@
-import express, { Request, Response } from "express";
-import dotenv from "dotenv";
-import cors from "cors";
-import rateLimit from "express-rate-limit";
-import http from "http";
+import express, { Request, Response } from "express"
+import dotenv from "dotenv"
+import cors from "cors"
+import rateLimit from "express-rate-limit"
+import http from "http"
 
-import connectDB from "./config/db";
+import connectDB from "./config/db"
 
 // Routes
-import authRoutes from "./routes/authRoutes";
-import meetingRoutes from "./routes/meetingRoutes";
+import authRoutes from "./routes/authRoutes"
+import meetingRoutes from "./routes/meetingRoutes"
 
 // Socket
-import { initSocket } from "./socket/socket";
+import { initSocket } from "./socket/socket"
 
-// Load Environment Variables
-dotenv.config();
+// Load env
+dotenv.config()
 
-// Connect Database
-connectDB();
+// DB connect
+connectDB()
 
-const app = express();
+const app = express()
 
-// Create HTTP Server
-const server = http.createServer(app);
+// ======================
+// MIDDLEWARE (FIRST)
+// ======================
+app.use(cors({
+  origin: process.env.CLIENT_URL,
+  credentials: true,
+}))
 
-// Initialize Socket.io
-initSocket(server);
+app.use(express.json())
 
-// Middleware
-app.use(express.json());
-app.use(cors());
-
-// Rate Limiter
+// Rate limiter
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 10,
   message: "Too many requests, please try again later",
-});
+})
 
-app.use("/api/auth", authLimiter);
+app.use("/api/auth", authLimiter)
 
-// Health Check Route
+
+// ======================
+// ROUTES
+// ======================
 app.get("/", (req: Request, res: Response) => {
-  res.send("IntellMeet Backend Running 🚀");
-});
+  res.send("IntellMeet Backend Running 🚀")
+})
 
-// Test Route
 app.get("/test", (req: Request, res: Response) => {
   res.json({
     success: true,
     message: "Server working",
-  });
-});
+  })
+})
 
-// API Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/meetings", meetingRoutes);
+app.use("/api/auth", authRoutes)
+app.use("/api/meetings", meetingRoutes)
 
-// Handle Unknown Routes
+// 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
     success: false,
     message: "Route not found",
-  });
-});
+  })
+})
 
-// Start Server
-const PORT: number = Number(process.env.PORT) || 5000;
+// ======================
+// HTTP SERVER + SOCKET
+// ======================
+const server = http.createServer(app)
+
+// IMPORTANT: socket AFTER server creation (correct)
+initSocket(server)
+
+// ======================
+// START SERVER
+// ======================
+const PORT: number = Number(process.env.PORT) || 5000
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+  console.log(`🚀 Server running on port ${PORT}`)
+})

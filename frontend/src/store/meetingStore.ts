@@ -1,39 +1,119 @@
 import { create } from "zustand"
-import type { Meeting } from "../types"
+import type { Meeting, Participant } from "../types"
 
 interface MeetingState {
-  meetings: Meeting[]           // list of all meetings
-  activeMeeting: Meeting | null // the meeting currently in progress
+  // All meetings of logged-in user
+  meetings: Meeting[]
+
+  // Meeting currently opened
+  activeMeeting: Meeting | null
+
+  // Live participants inside meeting room
+  participants: Participant[]
 
   // Actions
   setMeetings: (meetings: Meeting[]) => void
   addMeeting: (meeting: Meeting) => void
-  setActiveMeeting: (meeting: Meeting | null) => void
+  updateMeeting: (meeting: Meeting) => void
   removeMeeting: (id: string) => void
+
+  setActiveMeeting: (meeting: Meeting | null) => void
+
+  setParticipants: (participants: Participant[]) => void
+  addParticipant: (participant: Participant) => void
+  removeParticipant: (id: string) => void
+
+  clearMeetingState: () => void
 }
 
 const useMeetingStore = create<MeetingState>((set) => ({
-  // Initial values
+  // ===============================
+  // Initial State
+  // ===============================
   meetings: [],
   activeMeeting: null,
+  participants: [],
 
-  // Replace the whole meetings list
-  setMeetings: (meetings) => set({ meetings }),
+  // ===============================
+  // Meetings
+  // ===============================
+  setMeetings: (meetings) =>
+    set({ meetings }),
 
-  // Add one new meeting to the list
   addMeeting: (meeting) =>
+  set((state) => {
+    const exists = state.meetings.some(
+      (m) => m._id === meeting._id
+    )
+
+    if (exists) {
+      return state
+    }
+
+    return {
+      meetings: [meeting, ...state.meetings],
+    }
+  }),
+
+  updateMeeting: (meeting) =>
     set((state) => ({
-      meetings: [meeting, ...state.meetings]
+      meetings: state.meetings.map((m) =>
+        m._id === meeting._id ? meeting : m
+      ),
     })),
 
-  // Set which meeting is currently active (user is inside)
-  setActiveMeeting: (meeting) => set({ activeMeeting: meeting }),
-
-  // Remove a meeting by its ID
   removeMeeting: (id) =>
     set((state) => ({
-      meetings: state.meetings.filter((m) => m._id !== id)
+      meetings: state.meetings.filter(
+        (meeting) => meeting._id !== id
+      ),
     })),
+
+  // ===============================
+  // Active Meeting
+  // ===============================
+  setActiveMeeting: (meeting) =>
+    set({ activeMeeting: meeting }),
+
+  // ===============================
+  // Participants
+  // ===============================
+  setParticipants: (participants) =>
+    set({ participants }),
+
+  addParticipant: (participant) =>
+    set((state) => {
+      const exists = state.participants.some(
+        (p) => p._id === participant._id
+      )
+
+      if (exists) {
+        return state
+      }
+
+      return {
+        participants: [
+          ...state.participants,
+          participant,
+        ],
+      }
+    }),
+
+  removeParticipant: (id) =>
+    set((state) => ({
+      participants: state.participants.filter(
+        (participant) => participant._id !== id
+      ),
+    })),
+
+  // ===============================
+  // Reset Meeting State
+  // ===============================
+  clearMeetingState: () =>
+    set({
+      activeMeeting: null,
+      participants: [],
+    }),
 }))
 
 export default useMeetingStore

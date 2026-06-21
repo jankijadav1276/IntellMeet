@@ -1,82 +1,228 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Send } from "lucide-react"
+import useAuthStore from "../../store/authStore"
+import { useChatStore } from "../../store/chatStore"
 
-interface Message {
-  id: number
-  user: string
-  text: string
+
+
+interface ChatMessage {
+  userId: string
+  name: string
+  message: string
+  timestamp: string
 }
 
-export default function ChatPanel() {
+interface ChatPanelProps {
+  socket: any | null
+  meetingId?: string
+}
+
+export default function ChatPanel({
+  socket,
+  meetingId,
+}: ChatPanelProps) {
+  const { user } = useAuthStore()
+
   const [message, setMessage] = useState("")
+  const messages = useChatStore((s) => s.messages)
+  const typingUsers = useChatStore((s) => s.typingUsers)
+  
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      user: "John",
-      text: "Good morning team!"
-    },
-    {
-      id: 2,
-      user: "Sarah",
-      text: "Let's start today's meeting."
-    },
-    {
-      id: 3,
-      user: "Alex",
-      text: "Frontend module is completed."
-    }
-  ])
+  const bottomRef = useRef<HTMLDivElement | null>(null)
+  const typingTimeoutRef = useRef<any>(null)
 
+
+  /* ================= AUTO SCROLL ================= */
+useEffect(() => {
+  const el = bottomRef.current
+  if (!el) return
+
+  const isNearBottom =
+    el.getBoundingClientRect().top <
+    window.innerHeight
+
+  if (isNearBottom) {
+    el.scrollIntoView({ behavior: "smooth" })
+  }
+}, [messages])
+
+useEffect(() => {
+  if (!socket) return
+
+  const handleTyping = (data: {
+    userId: string
+    name: string
+  }) => {
+    useChatStore
+      .getState()
+      .addTypingUser({
+        userId: data.userId,
+        name: data.name,
+      })
+  }
+
+  const handleStopTyping = (data: {
+    userId: string
+  }) => {
+    useChatStore
+      .getState()
+      .removeTypingUser(
+        data.userId
+      )
+  }
+
+  socket.on(
+    "user-typing",
+    handleTyping
+  )
+
+  socket.on(
+    "user-stop-typing",
+    handleStopTyping
+  )
+
+  return () => {
+    socket.off(
+      "user-typing",
+      handleTyping
+    )
+
+    socket.off(
+      "user-stop-typing",
+      handleStopTyping
+    )
+  }
+}, [socket])
+
+  /* ================= SEND MESSAGE ================= */
   const handleSendMessage = () => {
-    if (!message.trim()) return
+    if (!message.trim() || !socket) return
 
-    const newMessage: Message = {
-      id: Date.now(),
-      user: "You",
-      text: message
-    }
+      socket?.emit("sendMessage", {
+        meetingId,
+        userId: user?._id,
+        name: user?.name,
+        message,
+        timestamp: new Date().toISOString(),
+      })
 
-    setMessages([...messages, newMessage])
-    setMessage("")
+    socket?.emit("stop-typing", {
+  meetingId,
+  userId: user?._id,
+  name: user?.name,
+})
+
+setMessage("")
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl h-full flex flex-col">
+    <div className="bg-gray-900 border border-gray-800 rounded-xl flex flex-col h-[400px]">
 
-      {/* Header */}
+      {/* HEADER */}
       <div className="p-4 border-b border-gray-800">
         <h2 className="text-white font-semibold">
           Meeting Chat
         </h2>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 h-[300px] overflow-y-auto p-4 space-y-4">
+      {/* CHAT LIST */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-        {messages.map((msg) => (
-          <div key={msg.id}>
-
-            <p className="text-blue-400 text-sm font-medium">
-              {msg.user}
-            </p>
-
-            <p className="text-gray-200 text-sm mt-1">
-              {msg.text}
-            </p>
-
+        {messages.length === 0 && (
+          <div className="text-center text-gray-500 text-sm">
+            No messages yet
           </div>
-        ))}
+        )}
 
+        {messages.map((msg, index) => {
+          const isMine =
+            msg.userId === user?._id
+            
+
+
+          return (
+            <div
+              key={index}
+              className={`flex ${
+                isMine
+                  ? "justify-end"
+                  : "justify-start"
+              }`}
+            >
+              <div
+                className={`max-w-[80%] rounded-xl px-3 py-2 ${
+                  isMine
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800 text-gray-100"
+                }`}
+              >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-medium">
+                {isMine ? "You" : msg.name}
+              </span>
+
+              <span className="text-[10px] opacity-70">
+                {new Date(
+                  msg.timestamp
+                ).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+
+            <p className="text-sm break-words">
+              {msg.message}
+            </p>
+              </div>
+            </div>
+          )
+        })}
+                  {/* TYPING INDICATOR - ADD HERE */}
+        {typingUsers.length > 0 && (
+          <div className="px-3 py-2 text-xs text-blue-400 italic animate-pulse">
+            {typingUsers.length === 1
+              ? `${typingUsers[0].name} is typing...`
+              : `${typingUsers.length} people are typing...`}
+          </div>
+        )}
+        <div ref={bottomRef} />
       </div>
 
-      {/* Input Area */}
+
+
+      {/* INPUT */}
+      
       <div className="border-t border-gray-800 p-4 flex gap-2">
 
         <input
-          type="text"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+         onChange={(e) => {
+  setMessage(e.target.value)
+
+  if (!socket) return
+
+  // send typing event immediately
+  socket.emit("typing", {
+    meetingId,
+    userId: user?._id,
+    name: user?.name,
+  })
+
+  // clear previous timeout
+  if (typingTimeoutRef.current) {
+    clearTimeout(typingTimeoutRef.current)
+  }
+
+  // stop typing after 1s inactivity
+  typingTimeoutRef.current = setTimeout(() => {
+    socket.emit("stop-typing", {
+      meetingId,
+      userId: user?._id,
+      name: user?.name,
+    })
+  }, 1000)
+}}
           placeholder="Type a message..."
           className="
             flex-1
@@ -100,6 +246,7 @@ export default function ChatPanel() {
 
         <button
           onClick={handleSendMessage}
+          title="Send message"
           className="
             bg-blue-600
             hover:bg-blue-500

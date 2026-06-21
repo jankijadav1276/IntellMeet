@@ -1,85 +1,279 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { io, Socket } from "socket.io-client"
 import useAuthStore from "../store/authStore"
+import { useChatStore } from "../store/chatStore"
+
+export interface ChatMessage {
+  userId: string
+  name: string
+  message: string
+  timestamp: string
+}
 
 export function useSocket(meetingId?: string) {
-  // useRef stores the socket instance without causing re-renders
   const socketRef = useRef<Socket | null>(null)
-  const { token } = useAuthStore()
+  const [socket, setSocket] = useState<Socket | null>(null)
+
+  const { token, user } = useAuthStore()
 
   useEffect(() => {
-    // Only connect if we have a token
     if (!token) return
 
-    // Create socket connection to backend
-    const socket = io(import.meta.env.VITE_SOCKET_URL, {
-      auth: {
-        token  // sends token so backend knows who this is
+    const newSocket = io(import.meta.env.VITE_SOCKET_URL, {
+      auth: { token },
+      transports: ["websocket"],
+    })
+
+    socketRef.current = newSocket
+    setSocket(newSocket)
+
+    // ================= CONNECT =================
+    newSocket.on("connect", () => {
+      console.log("✅ connected:", newSocket.id)
+
+      if (meetingId && user?._id) {
+        newSocket.emit("join-room", {
+          meetingId,
+          userId: user._id,
+          name: user.name,
+        })
       }
     })
 
-    // Save socket to ref so other functions can use it
-    socketRef.current = socket
+    // ================= CHAT HISTORY =================
+   newSocket.on("chat-history", (messages: ChatMessage[]) => {
+  useChatStore.getState().setMessages(messages)
+})
 
-    // These are connection lifecycle events
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id)
+newSocket.on("receiveMessage", (msg: ChatMessage) => {
+  useChatStore.getState().addMessage(msg)
+})
 
-      // If a meetingId was passed, join that meeting room
-      if (meetingId) {
-        socket.emit("join-room", { meetingId })
-      }
+newSocket.on("typing", (data: any) => {
+  if (data?.name) {
+    useChatStore.getState().addTypingUser(data.name)
+  }
+})
+
+newSocket.on("stop-typing", (data: any) => {
+  if (data?.name) {
+    useChatStore.getState().removeTypingUser(data.name)
+  }
+})
+
+    // ================= ROOM UPDATE =================
+    newSocket.on("room-update", () => {})
+
+    // ================= FORCE MUTE (NEW) =================
+    newSocket.on("force-mute", () => {
+      console.log("🔇 You were muted by host")
+      // You should update your UI state here
     })
 
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected")
+    // ================= ACTIVE SPEAKER (NEW) =================
+    newSocket.on("active-speaker", (data) => {
+      // data: { socketId, level }
+      // Use this to highlight active speaker UI
+      console.log("🎤 active speaker:", data)
     })
 
-    socket.on("connect_error", (error) => {
-      console.log("Socket connection error:", error.message)
+    // ================= HAND UPDATE (NEW) =================
+    newSocket.on("hand-update", (data) => {
+      // data: { participants, raisedBy }
+      console.log("✋ hand update:", data)
     })
 
-    // Cleanup — disconnect when component unmounts
-    // This prevents memory leaks
+    // ================= USER LEFT (NEW) =================
+    newSocket.on("user-left", (data) => {
+      // data: { socketId }
+      console.log("🚪 user left:", data)
+    })
+
+    // ================= CLEANUP =================
     return () => {
+      newSocket.off("connect")
+      newSocket.off("chat-history")
+      newSocket.off("room-update")
+      newSocket.off("force-mute")
+      newSocket.off("active-speaker")
+      newSocket.off("hand-update")
+      newSocket.off("user-left")
+      newSocket.off("user-reconnecting")
+      newSocket.off("system-message")
+      newSocket.off("typing")
+      newSocket.off("stop-typing")
+
       if (meetingId) {
-        socket.emit("leave-room", { meetingId })
+        newSocket.emit("leaveMeeting", { meetingId })
       }
-      socket.disconnect()
-    }
-  }, [token, meetingId])
-  // The array at the end means: re-run this effect
-  // only when token or meetingId changes
 
-  // Function to send a message in a meeting
-  function sendMessage(text: string) {
-    if (socketRef.current) {
-      socketRef.current.emit("message:send", {
-        meetingId,
-        text
-      })
+      newSocket.disconnect()
+      socketRef.current = null
+      setSocket(null)
     }
+  }, [token, meetingId, user?._id])
+
+  // ================= CHAT =================
+const sendMessage = (message: string) => {
+  if (!meetingId || !user) return
+
+  const msg: ChatMessage = {
+    userId: user._id,
+    name: user.name,
+    message,
+    timestamp: new Date().toISOString(),
   }
 
-  // Function to listen for any socket event
-  // Used in meeting room to listen for new messages etc
-  function onEvent(event: string, callback: (data: unknown) => void) {
-    if (socketRef.current) {
-      socketRef.current.on(event, callback)
-    }
+  // 1. optimistic UI update
+  useChatStore.getState().addMessage(msg)
+
+  // 2. emit to server
+  socketRef.current?.emit("sendMessage", {
+    meetingId,
+    ...msg,
+  })
+}
+
+const startTyping = () => {
+  socketRef.current?.emit("typing", {
+    meetingId,
+    userId: user?._id,
+    name: user?.name,
+  })
+}
+
+const stopTyping = () => {
+  socketRef.current?.emit("stop-typing", {
+    meetingId,
+    userId: user?._id,
+  })
+}
+
+  // ================= HAND RAISE =================
+  const raiseHand = (raised: boolean) => {
+    socketRef.current?.emit("raise-hand", {
+      raised,
+      userId: user?._id,
+      name: user?.name,
+    })
   }
 
-  // Function to stop listening to an event
-  function offEvent(event: string) {
-    if (socketRef.current) {
-      socketRef.current.off(event)
-    }
+  // ================= AUDIO LEVEL =================
+  const sendAudioLevel = (level: number) => {
+    socketRef.current?.emit("audio-level", { level })
   }
+
+  // ================= MEDIA =================
+  const updateMediaState = (micOn: boolean, cameraOn: boolean) => {
+    socketRef.current?.emit("media-state", {
+      micOn,
+      cameraOn,
+    })
+  }
+
+  // ================= HOST ACTIONS =================
+  const muteUser = (targetSocketId: string) => {
+    socketRef.current?.emit("mute-user", { targetSocketId })
+  }
+
+  const removeUser = (targetSocketId: string) => {
+    socketRef.current?.emit("remove-user", { targetSocketId })
+  }
+
+  const transferHost = (newHostUserId: string) => {
+    socketRef.current?.emit("transfer-host", {
+      meetingId,
+      newHostUserId,
+    })
+  }
+
+  const endMeeting = () => {
+    socketRef.current?.emit("end-meeting")
+  }
+
+  // ================= LEAVE =================
+  const leaveMeeting = () => {
+    socketRef.current?.emit("leaveMeeting", { meetingId })
+  }
+
+  // ================= EVENTS =================
+  const onChatHistory = (cb: (m: ChatMessage[]) => void) =>
+    socketRef.current?.on("chat-history", cb)
+
+  const onReceiveMessage = (cb: (m: ChatMessage) => void) =>
+    socketRef.current?.on("receiveMessage", cb)
+
+  const onMeetingEnded = (cb: () => void) =>
+    socketRef.current?.on("meeting-ended", cb)
+
+  const onHostTransferred = (cb: (d: any) => void) =>
+    socketRef.current?.on("host-transferred", cb)
+
+  const onRemovedFromMeeting = (cb: () => void) =>
+    socketRef.current?.on("removed-from-meeting", cb)
+
+  const onRoomUpdate = (cb: (d: any) => void) =>
+    socketRef.current?.on("room-update", cb)
+
+  // ================= NEW EXPOSED LISTENERS =================
+  const onForceMute = (cb: () => void) =>
+    socketRef.current?.on("force-mute", cb)
+
+  const onActiveSpeaker = (cb: (d: any) => void) =>
+    socketRef.current?.on("active-speaker", cb)
+
+  const onHandUpdate = (cb: (d: any) => void) =>
+    socketRef.current?.on("hand-update", cb)
+
+  const onUserLeft = (cb: (d: any) => void) =>
+    socketRef.current?.on("user-left", cb)
+
+  const onUserReconnecting = (
+  cb: (d: any) => void
+) =>
+  socketRef.current?.on(
+    "user-reconnecting",
+    cb
+  )
+
+const onSystemMessage = (
+  cb: (d: any) => void
+) =>
+  socketRef.current?.on(
+    "system-message",
+    cb
+  )
 
   return {
-    socket: socketRef.current,
+    socket,
+
     sendMessage,
-    onEvent,
-    offEvent,
+    raiseHand,
+    leaveMeeting,
+    sendAudioLevel,
+    updateMediaState,
+
+    muteUser,
+    removeUser,
+    transferHost,
+    endMeeting,
+
+    onChatHistory,
+    onReceiveMessage,
+    onMeetingEnded,
+    onHostTransferred,
+    onRemovedFromMeeting,
+    onRoomUpdate,
+
+    // NEW
+    onForceMute,
+    onActiveSpeaker,
+    onHandUpdate,
+    onUserLeft,
+    startTyping,
+    stopTyping,
+
+    onUserReconnecting,
+    onSystemMessage,
   }
 }

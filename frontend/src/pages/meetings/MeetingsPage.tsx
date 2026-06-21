@@ -1,33 +1,56 @@
-import { Plus, Search, Video, Users } from "lucide-react"
+import { useState } from "react"
+import {
+  Plus,
+  Search,
+  Video,
+  Users,
+  Loader2,
+  AlertCircle,
+  Trash2,
+} from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import Layout from "../../components/common/Layout"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 
-const mockMeetings = [
-  {
-    id: "1",
-    title: "Weekly Standup",
-    date: "2026-06-13",
-    participants: 8,
-    status: "Upcoming",
-  },
-  {
-    id: "2",
-    title: "Project Review",
-    date: "2026-06-14",
-    participants: 5,
-    status: "Live",
-  },
-  {
-    id: "3",
-    title: "Client Discussion",
-    date: "2026-06-15",
-    participants: 3,
-    status: "Upcoming",
-  },
-]
+import Layout from "../../components/common/Layout"
+import meetingService from "../../services/meetingService"
 
 export default function MeetingsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  const [search, setSearch] = useState("")
+
+  /*
+   * Fetch meetings
+   */
+  const {
+    data: meetings = [],
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["myMeetings"],
+    queryFn: meetingService.getMyMeetings,
+  })
+
+  /*
+   * Delete meeting
+   */
+  const deleteMutation = useMutation({
+    mutationFn: meetingService.deleteMeeting,
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["myMeetings"],
+      })
+    },
+  })
+
+  /*
+   * Filter meetings
+   */
+  const filteredMeetings = meetings.filter((meeting: any) =>
+    meeting.title.toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
     <Layout
@@ -35,29 +58,73 @@ export default function MeetingsPage() {
       subtitle="Manage and join your meetings"
     >
       <div className="space-y-6">
+
+        {/* Search + New Meeting */}
         <div className="flex flex-col md:flex-row gap-4 justify-between">
+
           <div className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 w-full md:max-w-md">
             <Search className="w-4 h-4 text-gray-500" />
+
             <input
               type="text"
               placeholder="Search meetings..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent outline-none text-white flex-1"
             />
           </div>
 
-          <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-3 rounded-xl transition">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-3 rounded-xl transition"
+          >
             <Plus className="w-4 h-4" />
             New Meeting
           </button>
         </div>
 
+        {/* Loading */}
+        {isLoading && (
+          <div className="flex justify-center py-12 text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        )}
+
+        {/* Error */}
+        {isError && (
+          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400">
+            <AlertCircle className="w-4 h-4" />
+            Failed to load meetings.
+          </div>
+        )}
+
+        {/* Empty */}
+        {!isLoading &&
+          !isError &&
+          filteredMeetings.length === 0 && (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-10 text-center">
+              <Video className="w-10 h-10 mx-auto text-gray-600 mb-4" />
+
+              <h3 className="text-white font-medium">
+                No meetings found
+              </h3>
+
+              <p className="text-gray-400 text-sm mt-2">
+                Create your first meeting from Dashboard.
+              </p>
+            </div>
+          )}
+
+        {/* Meetings */}
         <div className="grid gap-4">
-          {mockMeetings.map((meeting) => (
+          {filteredMeetings.map((meeting: any) => (
             <div
-              key={meeting.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center justify-between"
+              key={meeting._id}
+              className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
             >
+              {/* Left */}
               <div className="flex items-center gap-4">
+
                 <div className="bg-gray-800 p-3 rounded-lg">
                   <Video className="w-5 h-5 text-blue-400" />
                 </div>
@@ -68,21 +135,32 @@ export default function MeetingsPage() {
                   </h3>
 
                   <p className="text-gray-400 text-sm mt-1">
-                    {meeting.date}
+                    {new Date(
+                      meeting.startTime
+                    ).toLocaleString()}
+                  </p>
+
+                  <p className="text-gray-500 text-xs mt-1">
+                    Code: {meeting.meetingCode}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-6">
+              {/* Right */}
+              <div className="flex flex-wrap items-center gap-4">
+
                 <div className="flex items-center gap-2 text-gray-400 text-sm">
                   <Users className="w-4 h-4" />
-                  {meeting.participants}
+
+                  {meeting.participants?.length || 0}
                 </div>
 
                 <span
                   className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    meeting.status === "Live"
+                    meeting.status === "active"
                       ? "bg-green-500/10 text-green-400"
+                      : meeting.status === "completed"
+                      ? "bg-gray-700 text-gray-300"
                       : "bg-blue-500/10 text-blue-400"
                   }`}
                 >
@@ -90,11 +168,31 @@ export default function MeetingsPage() {
                 </span>
 
                 <button
-                  onClick={() => navigate(`/meeting/${meeting.id}`)}
+                  onClick={() =>
+                    navigate(`/meeting/${meeting._id}`)
+                  }
                   className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm transition"
                 >
                   Join
                 </button>
+
+                <button
+                  onClick={() => {
+                    if (
+                      confirm(
+                        "Delete this meeting?"
+                      )
+                    ) {
+                      deleteMutation.mutate(
+                        meeting._id
+                      )
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+
               </div>
             </div>
           ))}
