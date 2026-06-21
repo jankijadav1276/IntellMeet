@@ -1,22 +1,91 @@
 import {
+Video,
+Mic,
 Bell,
 Moon,
+Building,
 Shield
 } from "lucide-react"
 
+import {
+NavLink,
+Outlet
+} from "react-router-dom"
 
-const SettingsPage = () => {
+
+const menu=[
+{
+name:"Workspace",
+desc:"Organization settings",
+path:"workspace",
+icon:<Building/>
+},
+{
+name:"Meetings",
+desc:"Meeting preferences",
+path:"meeting",
+icon:<Video/>
+},
+{
+name:"Audio & Video",
+desc:"Devices and quality",
+path:"audio-video",
+icon:<Mic/>
+},
+{
+name:"Notifications",
+desc:"Alerts and reminders",
+path:"notifications",
+icon:<Bell/>
+},
+{
+name:"Appearance",
+desc:"Theme and interface",
+path:"appearance",
+icon:<Moon/>
+},
+{
+name:"Security",
+desc:"Account protection",
+path:"security",
+icon:<Shield/>
+}
+]
 
 
-return (
+export default function SettingsPage(){
 
-<div className="p-6 space-y-6">
+return(
+
+<div className="
+min-h-screen
+bg-gray-100
+dark:bg-[#0b1120]
+p-8
+">
+
+
+<div className="
+max-w-7xl
+mx-auto
+grid
+grid-cols-[280px_1fr]
+gap-8
+">
+
+
+<div className="
+bg-white
+dark:bg-[#111827]
+rounded-3xl
+p-5
+">
 
 
 <h1 className="
-text-3xl
-font-semibold
-text-white
+text-2xl
+font-bold
+mb-6
 ">
 
 Settings
@@ -24,87 +93,57 @@ Settings
 </h1>
 
 
-
-<div className="
-bg-[#111827]
-border
-border-gray-800
-rounded-2xl
-p-6
-space-y-5
-">
+{
+menu.map(item=>(
 
 
-<SettingItem
-icon={<Bell/>}
-title="Notifications"
-text="Meeting reminders and alerts"
-/>
+<NavLink
 
+key={item.path}
 
-<SettingItem
-icon={<Moon/>}
-title="Appearance"
-text="Manage theme preferences"
-/>
+to={item.path}
 
+className={({isActive})=>
 
-<SettingItem
-icon={<Shield/>}
-title="Privacy"
-text="Manage account security"
-/>
+`
+block
+p-4
+rounded-xl
+mb-2
 
+${
+isActive
+?
+"bg-blue-600 text-white"
+:
+"hover:bg-gray-100 dark:hover:bg-gray-900"
+}
 
-</div>
-
-
-
-</div>
-
-)
+`
 
 }
 
 
-
-const SettingItem = ({
-icon,
-title,
-text
-}:any)=>{
+>
 
 
-return (
+<div className="flex gap-3">
 
-<div className="
-flex
-items-center
-gap-4
-bg-gray-900
-rounded-xl
-p-4
-">
-
-
-<div className="text-blue-400">
-
-{icon}
-
-</div>
+{item.icon}
 
 
 <div>
 
-<h3 className="text-white">
+<h3 className="font-medium">
 
-{title}
+{item.name}
 
 </h3>
 
-<p className="text-gray-400 text-sm">
 
-{text}
+<p className="text-xs opacity-70">
+
+{item.desc}
 
 </p>
 
@@ -114,9 +153,39 @@ p-4
 
 </div>
 
-)
+
+</NavLink>
+
+
+))
 
 }
 
 
-export default SettingsPage
+</div>
+
+
+
+<div className="
+bg-white
+dark:bg-[#111827]
+rounded-3xl
+p-8
+">
+
+
+<Outlet/>
+
+
+</div>
+
+
+
+</div>
+
+
+</div>
+
+)
+
+}
