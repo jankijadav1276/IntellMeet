@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom"
 import { Hand, Loader2, WifiOff } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState , useRef  } from "react"
 import { useSocket } from "../../hooks/useSocket"
 
 import Layout from "../../components/common/Layout"
@@ -14,6 +14,13 @@ import { useWebRTC } from "../../hooks/useWebRTC"
 import useAuthStore from "../../store/authStore"
 import { useChatStore } from "../../store/chatStore"
 
+
+function formatTime(seconds: number) {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+}
 
 export default function MeetingRoomPage() {
   const navigate = useNavigate()
@@ -48,7 +55,11 @@ const [toastMessage, setToastMessage] =
   useState<string | null>(null)
   const [reconnectingUser, setReconnectingUser] =
   useState<string | null>(null)
-  
+
+const [recordingTime, setRecordingTime] = useState(0)
+const [isRecordingActive, setIsRecordingActive] = useState(false)
+const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
 const {
   localStream,
   remotePeers,
@@ -183,6 +194,43 @@ socket.on(
   handleSystemMessage
 )
 
+socket.on("recording-status", (data: any) => {
+  if (data.recording) {
+    setIsRecordingActive(true)
+    setRecordingTime(0)
+
+    intervalRef.current = setInterval(() => {
+      setRecordingTime((prev) => prev + 1)
+    }, 1000)
+  } else {
+    setIsRecordingActive(false)
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+})
+
+/* ================= RECORDING STATUS ================= */
+socket.on("recording-status", (data: any) => {
+  if (data.recording) {
+    setIsRecordingActive(true)
+    setRecordingTime(0)
+
+    intervalRef.current = setInterval(() => {
+      setRecordingTime((prev) => prev + 1)
+    }, 1000)
+  } else {
+    setIsRecordingActive(false)
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+})
+
   // ❌ REMOVE THIS (NOT USED IN BACKEND)
   // socket.on("user-joined", syncParticipants)
 
@@ -206,6 +254,13 @@ socket.off(
 )
 socket.off("chat-history")
 socket.off("receiveMessage")
+
+socket.off("recording-status")
+
+if (intervalRef.current) {
+  clearInterval(intervalRef.current)
+  intervalRef.current = null
+}
   }
 }, [
   socket,
@@ -270,11 +325,22 @@ useEffect(() => {
 
         {/* STATUS */}
         <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-sm text-gray-300">
-          <div className="flex gap-4">
-            <span className="text-green-400">● Connected</span>
-            <span>👥 {participants.length}</span>
-            <span>🎥 Live Meeting</span>
-          </div>
+         <div className="flex gap-4 items-center">
+  <span className="text-green-400">● Connected</span>
+
+  <span>👥 {participants.length}</span>
+
+  <span>🎥 Live Meeting</span>
+
+{/* 🔴 RECORDING INDICATOR */}
+  {isRecordingActive && (
+  <span className="text-red-500 flex items-center gap-2 font-medium">
+    🔴 Recording • {recordingTime}s
+  </span>
+)}
+
+  
+</div>
           <div className="text-xs text-gray-500">ID: {id}</div>
         </div>
 
@@ -441,21 +507,28 @@ useEffect(() => {
   </div>
 )}
         {/* CONTROLS (ONLY ONE ACTION NOW) */}
-      <MeetingControls
-        micOn={micOn}
-        cameraOn={cameraOn}
-        onToggleMic={toggleMic}
-        onToggleCamera={toggleCamera}
-        onLeave={handleLeave}
-        isHost={isHost}
+<MeetingControls
+  micOn={micOn}
+  cameraOn={cameraOn}
+  onToggleMic={toggleMic}
+  onToggleCamera={toggleCamera}
+  onLeave={handleLeave}
+  isHost={isHost}
 
-        isScreenSharing={isScreenSharing}
-        onToggleScreenShare={toggleScreenShare}
+  meetingId={id || ""}
 
-        onEndMeeting={() => {
-          endMeeting()
-        }}
-      />
+  socket={socket}
+
+  isScreenSharing={isScreenSharing}
+  onToggleScreenShare={toggleScreenShare}
+
+ onEndMeeting={() => {
+  const ok = window.confirm("End meeting for everyone?")
+  if (!ok) return
+
+  endMeeting()
+}}
+/>
       </div>
     </Layout>
   )

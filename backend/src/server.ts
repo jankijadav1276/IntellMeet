@@ -3,15 +3,17 @@ import dotenv from "dotenv"
 import cors from "cors"
 import rateLimit from "express-rate-limit"
 import http from "http"
-
+import path from "path"
 import connectDB from "./config/db"
 
 // Routes
 import authRoutes from "./routes/authRoutes"
 import meetingRoutes from "./routes/meetingRoutes"
+import recordingRoutes from "./routes/recordingRoutes"
 
 // Socket
 import { initSocket } from "./socket/socket"
+
 
 // Load env
 dotenv.config()
@@ -30,6 +32,13 @@ app.use(cors({
 }))
 
 app.use(express.json())
+
+app.use(
+  "/uploads",
+  express.static(
+    path.join(process.cwd(), "uploads")
+  )
+)
 
 // Rate limiter
 const authLimiter = rateLimit({
@@ -57,6 +66,7 @@ app.get("/test", (req: Request, res: Response) => {
 
 app.use("/api/auth", authRoutes)
 app.use("/api/meetings", meetingRoutes)
+app.use("/api/recordings",recordingRoutes)
 
 // 404 handler
 app.use((req: Request, res: Response) => {

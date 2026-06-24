@@ -35,7 +35,8 @@ import HelpSupport from "../pages/profile/HelpSupport"
 import PrivacyPolicy from "../pages/profile/PrivacyPolicy"
 import PrivacySecurity from "../pages/profile/PrivacySecurity"
 import TermsConditions from "../pages/profile/TermsConditions"
-
+import RecordingsPage from "../pages/recording/RecordingsPage"
+import RecordingDetailsPage from "../pages/recording/RecordingDetailsPage"
 import PrivateRoute from "./PrivateRoute"
 import PublicRoute from "./PublicRoute"
 
@@ -62,6 +63,10 @@ export default function AppRoutes() {
       <Route path="/meetings/:id/lobby" element={<PrivateRoute><MeetingLobbyPage /></PrivateRoute>} />
       <Route path="/meetings/:id" element={<PrivateRoute><MeetingRoomPage /></PrivateRoute>} />
       <Route path="/meetings/:id/summary" element={<PrivateRoute><MeetingSummaryPage /></PrivateRoute>} />
+
+      {/* RECORDINGS */}
+      <Route path="/recordings" element={<PrivateRoute><RecordingsPage /></PrivateRoute>} />
+      <Route path="/recordings/:id" element={<PrivateRoute><RecordingDetailsPage /></PrivateRoute>} />
 
       {/* TEAM & ANALYTICS */}
       <Route path="/team" element={<PrivateRoute><TeamPage /></PrivateRoute>} />

@@ -1,5 +1,6 @@
 import {
   Video,
+  Film,
   Users,
   BarChart2,
   LayoutDashboard,
@@ -35,6 +36,11 @@ const navItems = [
     label: "Analytics",
     icon: BarChart2,
     path: "/analytics"
+  },
+  {
+  label: "Recordings",
+  icon: Film,
+  path: "/recordings",
   }
 ]
 

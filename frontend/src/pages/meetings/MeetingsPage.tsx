@@ -1,204 +1,173 @@
 import { useState } from "react"
-import {
-  Plus,
-  Search,
-  Video,
-  Users,
-  Loader2,
-  AlertCircle,
-  Trash2,
-} from "lucide-react"
+import { Search, Video, Users } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-
 import Layout from "../../components/common/Layout"
+import PageWrapper from "../../components/common/PageWrapper"
+
+import { useQuery } from "@tanstack/react-query"
 import meetingService from "../../services/meetingService"
 
+const getMeetingStatus = (meeting: any) => {
+const now = new Date()
+const meetingTime = new Date(meeting.startTime)
+
+const meetingEnd = new Date(meetingTime)
+meetingEnd.setHours(meetingEnd.getHours() + 1)
+
+if (now >= meetingTime && now <= meetingEnd) return "Live"
+if (now < meetingTime) return "Upcoming"
+return "Completed"
+}
+
 export default function MeetingsPage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+const navigate = useNavigate()
 
-  const [search, setSearch] = useState("")
+const [search, setSearch] = useState("")
+const [filter, setFilter] = useState("All")
 
-  /*
-   * Fetch meetings
-   */
-  const {
-    data: meetings = [],
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["myMeetings"],
-    queryFn: meetingService.getMyMeetings,
-  })
+// ===============================
+// BACKEND INTEGRATION
+// ===============================
+const { data: meetings = [], isLoading, isError } = useQuery({
+queryKey: ["myMeetings"],
+queryFn: meetingService.getMyMeetings,
+})
 
-  /*
-   * Delete meeting
-   */
-  const deleteMutation = useMutation({
-    mutationFn: meetingService.deleteMeeting,
+// ===============================
+// FILTERED MEETINGS
+// ===============================
+const filteredMeetings = meetings
+.filter((m: any) =>
+m.title.toLowerCase().includes(search.toLowerCase())
+)
+.filter((m: any) => {
+const status = getMeetingStatus(m)
+return filter === "All" || status === filter
+})
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["myMeetings"],
-      })
-    },
-  })
+return (
+<Layout>
+<PageWrapper>
 
-  /*
-   * Filter meetings
-   */
-  const filteredMeetings = meetings.filter((meeting: any) =>
-    meeting.title.toLowerCase().includes(search.toLowerCase())
-  )
+{/* HEADER (NO CREATE BUTTON - REMOVED AS REQUESTED) */}
+<div className="flex items-center justify-between mb-6">
+<h2 className="text-xl font-semibold text-white">
+Meetings
+</h2>
+</div>
 
-  return (
-  <Layout title="Meetings">
-    
-      <div className="space-y-6">
+{/* SEARCH */}
+<div className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 w-full md:max-w-md mb-6">
+<Search className="w-4 h-4 text-gray-500" />
 
-        {/* Search + New Meeting */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between">
+<input
+type="text"
+placeholder="Search meetings..."
+value={search}
+onChange={(e) => setSearch(e.target.value)}
+className="bg-transparent outline-none text-white flex-1"
+/>
+</div>
 
-          <div className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 w-full md:max-w-md">
-            <Search className="w-4 h-4 text-gray-500" />
+{/* FILTER BUTTONS */}
+<div className="flex gap-3 mb-6">
+{["All", "Live", "Upcoming", "Completed"].map((f) => (
+<button
+key={f}
+onClick={() => setFilter(f)}
+className={`px-4 py-2 rounded-lg text-sm ${
+filter === f
+? "bg-blue-600 text-white"
+: "bg-gray-800 text-gray-400"
+}`}
+>
+{f}
+</button>
+))}
+</div>
 
-            <input
-              type="text"
-              placeholder="Search meetings..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent outline-none text-white flex-1"
-            />
-          </div>
+{/* LOADING */}
+{isLoading && (
+<div className="text-gray-400">Loading meetings...</div>
+)}
 
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-3 rounded-xl transition"
-          >
-            <Plus className="w-4 h-4" />
-            New Meeting
-          </button>
-        </div>
+{/* ERROR */}
+{isError && (
+<div className="text-red-400">Failed to load meetings</div>
+)}
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="flex justify-center py-12 text-gray-400">
-            <Loader2 className="w-5 h-5 animate-spin" />
-          </div>
-        )}
+{/* EMPTY STATE */}
+{!isLoading && filteredMeetings.length === 0 && (
+<div className="text-gray-400 text-center mt-10">
+No meetings found
+</div>
+)}
 
-        {/* Error */}
-        {isError && (
-          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400">
-            <AlertCircle className="w-4 h-4" />
-            Failed to load meetings.
-          </div>
-        )}
+{/* MEETINGS LIST */}
+<div className="grid gap-4">
+{filteredMeetings.map((meeting: any) => {
+const status = getMeetingStatus(meeting)
 
-        {/* Empty */}
-        {!isLoading &&
-          !isError &&
-          filteredMeetings.length === 0 && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-10 text-center">
-              <Video className="w-10 h-10 mx-auto text-gray-600 mb-4" />
+return (
+<div
+key={meeting._id}
+className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex justify-between items-center"
+>
+{/* LEFT */}
+<div>
+<h3 className="text-white font-semibold">
+{meeting.title}
+</h3>
 
-              <h3 className="text-white font-medium">
-                No meetings found
-              </h3>
+<p className="text-gray-400 text-sm">
+{new Date(meeting.startTime).toLocaleString()}
+</p>
 
-              <p className="text-gray-400 text-sm mt-2">
-                Create your first meeting from Dashboard.
-              </p>
-            </div>
-          )}
+<p className="text-gray-500 text-xs">
+Code: {meeting.meetingCode}
+</p>
+</div>
 
-        {/* Meetings */}
-        <div className="grid gap-4">
-          {filteredMeetings.map((meeting: any) => (
-            <div
-              key={meeting._id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-            >
-              {/* Left */}
-              <div className="flex items-center gap-4">
+{/* RIGHT */}
+<div className="flex items-center gap-4">
 
-                <div className="bg-gray-800 p-3 rounded-lg">
-                  <Video className="w-5 h-5 text-blue-400" />
-                </div>
+<div className="flex items-center gap-2 text-gray-400 text-sm">
+<Users className="w-4 h-4" />
+{meeting.participants?.length || 0}
+</div>
 
-              <div>
-                <h3 className="text-white text-lg font-semibold">
-                  {meeting.title}
-                </h3>
+<span
+className={`px-3 py-1 rounded-full text-xs ${
+status === "Live"
+? "bg-green-500/10 text-green-400"
+: status === "Upcoming"
+? "bg-blue-500/10 text-blue-400"
+: "bg-gray-700 text-gray-300"
+}`}
+>
+{status}
+</span>
 
-                  <p className="text-gray-400 text-sm mt-1">
-                    {new Date(
-                      meeting.startTime
-                    ).toLocaleString()}
-                  </p>
+<button
+onClick={() =>
+navigate(`/meeting/${meeting.meetingCode}`)
+}
+className={`px-4 py-2 rounded-lg text-sm ${
+status === "Live"
+? "bg-blue-600 text-white"
+: "bg-gray-700 text-gray-400 cursor-not-allowed"
+}`}
+disabled={status !== "Live"}
+>
+{status === "Live" ? "Join" : "Locked"}
+</button>
+</div>
+</div>
+)
+})}
+</div>
 
-                  <p className="text-gray-500 text-xs mt-1">
-                    Code: {meeting.meetingCode}
-                  </p>
-                </div>
-              </div>
-
-              {/* Right */}
-              <div className="flex flex-wrap items-center gap-4">
-
-                <div className="flex items-center gap-2 text-gray-400 text-sm">
-                  <Users className="w-4 h-4" />
-
-                  {meeting.participants?.length || 0}
-                </div>
-
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    meeting.status === "active"
-                      ? "bg-green-500/10 text-green-400"
-                      : meeting.status === "completed"
-                      ? "bg-gray-700 text-gray-300"
-                      : "bg-blue-500/10 text-blue-400"
-                  }`}
-                >
-                  {meeting.status}
-                </span>
-
-                <button
-                  onClick={() =>
-                    navigate(`/meeting/${meeting._id}`)
-                  }
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm transition"
-                >
-                  Create Meeting
-                </button>
-
-                <button
-                title="Delete Meeting"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        "Delete this meeting?"
-                      )
-                    ) {
-                      deleteMutation.mutate(
-                        meeting._id
-                      )
-                    }
-                  }}
-                  className="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg transition"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-
-              </div>
-
-            </div>
-          ))}
-        </div>
-
-      </div>
-    </Layout>
-  )
-} 
+</PageWrapper>
+</Layout>
+)
+}

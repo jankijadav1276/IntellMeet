@@ -5,30 +5,11 @@ interface AuthState {
   user: User | null
   token: string | null
 
-  setUser: (user: User) => void
-  setToken: (token: string) => void
+  setUser: (user: User | null) => void
+  setToken: (token: string | null) => void
   login: (user: User, token: string) => void
   logout: () => void
   isAuthenticated: () => boolean
-}
-
-const getStoredUser = (): User | null => {
-  try {
-    const storedUser = localStorage.getItem("user")
-    return storedUser ? JSON.parse(storedUser) : null
-  } catch (error) {
-    console.error("Failed to load user from storage:", error)
-    return null
-  }
-}
-
-const getStoredToken = (): string | null => {
-  try {
-    return localStorage.getItem("token")
-  } catch (error) {
-    console.error("Failed to load token from storage:", error)
-    return null
-  }
 }
 
 const useAuthStore = create<AuthState>((set, get) => ({
@@ -36,26 +17,32 @@ const useAuthStore = create<AuthState>((set, get) => ({
   token: localStorage.getItem("token"),
 
   setUser: (user) => {
-    localStorage.setItem("user", JSON.stringify(user))
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user))
+    } else {
+      localStorage.removeItem("user")
+    }
     set({ user })
   },
 
   setToken: (token) => {
-    localStorage.setItem("token", token)
+    if (token) {
+      localStorage.setItem("token", token)
+    } else {
+      localStorage.removeItem("token")
+    }
     set({ token })
   },
 
   login: (user, token) => {
     localStorage.setItem("user", JSON.stringify(user))
     localStorage.setItem("token", token)
-    localStorage.setItem("user", JSON.stringify(user))
     set({ user, token })
   },
 
   logout: () => {
     localStorage.removeItem("user")
     localStorage.removeItem("token")
-    localStorage.removeItem("user")
     set({ user: null, token: null })
   },
 

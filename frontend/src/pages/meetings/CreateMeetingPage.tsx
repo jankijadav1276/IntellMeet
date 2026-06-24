@@ -10,16 +10,18 @@ const navigate=useNavigate()
 const [meetingId,setMeetingId]=useState("")
 
 
-const createMeeting=()=>{
+const createMeeting = async () => {
+try {
+const res = await meetingService.createMeeting({
+title: "New Meeting",
+startTime: new Date().toISOString(),
+duration: 30
+})
 
-const id=
-Math.random()
-.toString(36)
-.substring(2,10)
-
-
-setMeetingId(id)
-
+setMeetingId(res.meetingCode)
+} catch (err) {
+console.log("Create meeting failed", err)
+}
 }
 
 

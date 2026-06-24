@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { Socket } from "socket.io-client"
 import useAuthStore from "../store/authStore"
+import meetingService from "../services/meetingService"
 
 interface RemotePeer {
   peerId: string

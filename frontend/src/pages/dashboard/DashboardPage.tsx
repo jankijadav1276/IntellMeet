@@ -56,20 +56,23 @@ const {addMeeting}=useMeetingStore()
   })
 
   /* ───────── Create Meeting ───────── */
-  const createMutation = useMutation({
-    mutationFn: meetingService.createMeeting,
-    onSuccess: (created: Meeting) => {
-      queryClient.setQueryData<Meeting[]>(["meetings"], (old = []) => [
-        created,
-        ...old,
-      ])
-      addMeeting(created)
-      closeModal()
-    },
-    onError: () => {
-      setFormError("Failed to create meeting. Try again.")
-    },
-  })
+ const createMutation=useMutation({
+mutationFn:(data:any)=>meetingService.createMeeting(data),
+onSuccess:(created)=>{
+queryClient.invalidateQueries({
+queryKey:["meetings"]
+})
+addMeeting(created)
+closeModal()
+},
+onError:(error:any)=>{
+console.log(error?.response?.data)
+setFormError(
+error?.response?.data?.message ||
+"Failed to create meeting. Please try again."
+)
+}
+})
 
   /* ───────── Helpers ───────── */
   function closeModal() {
@@ -96,10 +99,11 @@ e.preventDefault()
     ).toISOString()
 
     createMutation.mutate({
-      title: newMeeting.title.trim(),
-      startTime,
-      duration: newMeeting.duration,
-    })
+title:newMeeting.title.trim(),
+scheduledDate:newMeeting.date,
+scheduledTime:newMeeting.time,
+startTime
+})
   }
 
   /* ───────── UI ───────── */

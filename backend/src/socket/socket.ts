@@ -264,6 +264,52 @@ socket.on("stop-typing", (data) => {
   await handleLeave(socket, meetingId)
 })
 
+
+/* ================= RECORDING ================= */
+
+
+socket.on(
+"recording-started",
+(data)=>{
+
+const meetingId=
+socket.data.meetingId
+
+if(!meetingId)return
+
+
+io.to(meetingId).emit(
+"recording-status",
+{
+recording:true,
+startedBy:data.userId
+}
+)
+
+})
+
+
+socket.on(
+"recording-stopped",
+()=>{
+
+
+const meetingId=
+socket.data.meetingId
+
+if(!meetingId)return
+
+
+io.to(meetingId).emit(
+"recording-status",
+{
+recording:false
+}
+)
+
+
+})
+
     /* ================= WEBRTC ================= */
 const isValidParticipant = (meetingId: string, socketId: string) => {
   return rooms[meetingId]?.some(
