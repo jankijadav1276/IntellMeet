@@ -98,9 +98,9 @@ export default function RecordingDetailsPage() {
 
   return (
     <Layout
-      title={recording.title}
-      subtitle="Recording details"
-    >
+       title={`Meeting ${recording.meetingId}`}
+       subtitle="Recording details"
+       >
       {/* Header */}
       <div className="flex flex-wrap gap-3 justify-between items-center mb-6">
         <button
@@ -117,9 +117,9 @@ export default function RecordingDetailsPage() {
           Back to Recordings
         </button>
 
-        {recording.downloadUrl && (
+        {recording.videoUrl && (
           <a
-            href={recording.downloadUrl}
+           href={`http://localhost:5000${recording.videoUrl}`} 
             target="_blank"
             rel="noreferrer"
             className="
@@ -206,16 +206,16 @@ export default function RecordingDetailsPage() {
         </div>
 
         <div className="p-4">
-          {recording.recordingUrl ? (
+          {recording.videoUrl ? (
             <video
-              controls
-              className="w-full rounded-xl"
-            >
-              <source
-                src={recording.recordingUrl}
-                type="video/mp4"
-              />
-            </video>
+    controls
+    className="w-full rounded-xl"
+  >
+    <source
+      src={`http://localhost:5000${recording.videoUrl}`}
+      type="video/webm"
+    />
+  </video>
           ) : (
             <div
               className="
@@ -235,67 +235,6 @@ export default function RecordingDetailsPage() {
         </div>
       </div>
 
-      {/* Summary */}
-      <div
-        className="
-          bg-gray-900
-          border
-          border-gray-800
-          rounded-2xl
-          p-5
-          mb-6
-        "
-      >
-        <h3 className="font-semibold text-white flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5" />
-          AI Summary
-        </h3>
-
-        <p className="text-gray-300 whitespace-pre-wrap">
-          {recording.summary || "Summary not available."}
-        </p>
-      </div>
-
-      {/* Transcript */}
-      <div
-        className="
-          bg-gray-900
-          border
-          border-gray-800
-          rounded-2xl
-          p-5
-          mb-6
-        "
-      >
-        <h3 className="font-semibold text-white flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5" />
-          Transcript
-        </h3>
-
-        <div className="text-gray-300 whitespace-pre-wrap">
-          {recording.transcript || "Transcript not available."}
-        </div>
-      </div>
-
-      {/* Action Items Placeholder */}
-      <div
-        className="
-          bg-gray-900
-          border
-          border-gray-800
-          rounded-2xl
-          p-5
-        "
-      >
-        <h3 className="font-semibold text-white flex items-center gap-2 mb-4">
-          <CheckSquare className="w-5 h-5" />
-          Action Items
-        </h3>
-
-        <p className="text-gray-400">
-          Action items will appear here when available.
-        </p>
-      </div>
     </Layout>
   )
 }

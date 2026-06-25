@@ -10,6 +10,7 @@ import {
   getRecordingById,
   deleteRecording,
   uploadRecording,
+  getAllRecordings,
 } from "../controllers/recordingController"
 
 const router = express.Router()
@@ -40,6 +41,12 @@ router.post(
 )
 
 router.get(
+  "/",
+  protect,
+  getAllRecordings
+)
+
+router.get(
   "/:recordingId",
   protect,
   getRecordingById
@@ -50,5 +57,6 @@ router.delete(
   protect,
   deleteRecording
 )
+
 
 export default router

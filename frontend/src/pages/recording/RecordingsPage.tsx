@@ -31,11 +31,15 @@ export default function RecordingsPage() {
     queryFn: recordingService.getRecordings,
   })
 
-  const filteredRecordings = useMemo(() => {
-    return recordings.filter((recording) =>
-      recording.title?.toLowerCase().includes(search.toLowerCase())
-    )
-  }, [recordings, search])
+const filteredRecordings = useMemo(() => {
+  return recordings.filter(
+    (recording) =>
+      recording.status === "completed" &&
+      recording.meetingId
+        ?.toLowerCase()
+        .includes(search.toLowerCase())
+  )
+}, [recordings, search])
 
   return (
     <Layout
@@ -198,7 +202,7 @@ export default function RecordingsPage() {
 
                     <div>
                       <h3 className="font-semibold text-white">
-                        {recording.title}
+                       Meeting {recording.meetingId}
                       </h3>
 
                       <p className="text-sm text-gray-400">

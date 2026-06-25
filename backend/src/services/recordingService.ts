@@ -89,3 +89,15 @@ export const deleteRecordingService = async (
 
   return true
 }
+
+export const getAllRecordingsService =
+  async () => {
+    return await Recording.find()
+      .populate(
+        "createdBy",
+        "name email"
+      )
+      .sort({
+        createdAt: -1,
+      })
+  }

@@ -53,6 +53,14 @@ const recordingService = {
     return res.data.recording
   },
 
+  getRecordings: async () => {
+  const res = await api.get(
+    "/recordings"
+  )
+
+  return res.data.recordings
+},
+
   getRecordingById: async (
     id: string
   ) => {
@@ -82,6 +90,12 @@ const recordingService = {
 
     return res.data
   },
+}
+
+getRecordings: async () => {
+  const res = await api.get("/recordings")
+
+  return res.data.recordings
 }
 
 export default recordingService

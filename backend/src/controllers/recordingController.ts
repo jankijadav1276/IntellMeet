@@ -8,6 +8,7 @@ import {
   getMeetingRecordingsService,
   getRecordingByIdService,
   deleteRecordingService,
+  getAllRecordingsService,
 } from "../services/recordingService"
 
 export const startRecording = async (
@@ -82,6 +83,29 @@ export const getMeetingRecordings = async (
       await getMeetingRecordingsService(
         meetingId
       )
+
+    res.status(200).json({
+      success: true,
+      recordings,
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Server Error",
+    })
+  }
+}
+
+export const getAllRecordings = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    const recordings =
+      await getAllRecordingsService()
 
     res.status(200).json({
       success: true,

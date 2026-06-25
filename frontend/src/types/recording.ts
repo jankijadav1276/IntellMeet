@@ -1,28 +1,14 @@
 export interface Recording {
   _id: string
-  title: string
+
   meetingId: string
 
-  status: "processing" | "completed" | "failed"
+  videoUrl: string
 
-  duration?: number
+  duration: number
 
-  recordingUrl?: string
-  downloadUrl?: string
-
-  summary?: string
-  transcript?: string
+  status: "recording" | "completed"
 
   createdAt: string
-  updatedAt?: string
-}
-
-export interface RecordingResponse {
-  success: boolean
-  recording: Recording
-}
-
-export interface RecordingsResponse {
-  success: boolean
-  recordings: Recording[]
+  updatedAt: string
 }
