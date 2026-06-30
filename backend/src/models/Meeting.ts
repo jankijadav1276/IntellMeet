@@ -21,6 +21,17 @@ export interface IParticipant {
   isActive: boolean
 }
 
+
+/*================== Waiting Participant ==================*/
+
+export interface IWaitingParticipant {
+  user: mongoose.Types.ObjectId
+
+  name: string
+
+  joinedAt: Date
+}
+
 /* ================= MEETING ================= */
 
 export interface IMeeting extends Document {
@@ -30,6 +41,10 @@ export interface IMeeting extends Document {
   host: mongoose.Types.ObjectId
 
   participants: IParticipant[]
+
+  waitingParticipants: IWaitingParticipant[]
+
+  autoAdmit: boolean
 
   meetingCode: string
 
@@ -86,6 +101,29 @@ const participantSchema = new Schema<IParticipant>(
   }
 )
 
+const waitingParticipantSchema = new Schema<IWaitingParticipant>(
+  {
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    name: {
+      type: String,
+      required: true,
+    },
+
+    joinedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: false,
+  }
+)
+
 const chatSchema = new Schema<IChat>(
   {
     userId: {
@@ -135,6 +173,16 @@ const meetingSchema = new Schema<IMeeting>(
     },
 
     participants: [participantSchema],
+
+    waitingParticipants: {
+  type: [waitingParticipantSchema],
+  default: [],
+},
+
+autoAdmit: {
+  type: Boolean,
+  default: false,
+},
 
     meetingCode: {
       type: String,

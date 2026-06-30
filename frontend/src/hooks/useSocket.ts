@@ -10,7 +10,7 @@ export interface ChatMessage {
   timestamp: string
 }
 
-export function useSocket(meetingId?: string) {
+export function useSocket(meetingId?: string,autoJoin = true) {
   const socketRef = useRef<Socket | null>(null)
   const [socket, setSocket] = useState<Socket | null>(null)
 
@@ -23,23 +23,28 @@ export function useSocket(meetingId?: string) {
       auth: { token },
       transports: ["websocket"],
     })
-
+     setSocket(newSocket)
     socketRef.current = newSocket
-    setSocket(newSocket)
+    
 
     // ================= CONNECT =================
     newSocket.on("connect", () => {
-      console.log("✅ connected:", newSocket.id)
+  console.log("✅ connected:", newSocket.id)
+  console.log("autoJoin =", autoJoin)
 
-      if (meetingId && user?._id) {
-        newSocket.emit("join-room", {
-          meetingId,
-          userId: user._id,
-          name: user.name,
-        })
-      }
+  console.log("meetingId =", meetingId)
+
+  console.log("Current page =", window.location.pathname)
+
+  console.log("✅ connected:", newSocket.id)
+  if (autoJoin && meetingId && user?._id) {
+    newSocket.emit("join-room", {
+      meetingId,
+      userId: user._id,
+      name: user.name,
     })
-
+  }
+})
     // ================= CHAT HISTORY =================
    newSocket.on("chat-history", (messages: ChatMessage[]) => {
   useChatStore.getState().setMessages(messages)
@@ -196,6 +201,16 @@ const stopTyping = () => {
     socketRef.current?.emit("leaveMeeting", { meetingId })
   }
 
+  const requestJoinWaitingRoom = () => {
+  if (!meetingId || !user) return
+
+  socketRef.current?.emit("join-waiting-room", {
+    meetingId,
+    userId: user._id,
+    name: user.name,
+  })
+}
+
   // ================= EVENTS =================
   const onChatHistory = (cb: (m: ChatMessage[]) => void) =>
     socketRef.current?.on("chat-history", cb)
@@ -214,6 +229,30 @@ const stopTyping = () => {
 
   const onRoomUpdate = (cb: (d: any) => void) =>
     socketRef.current?.on("room-update", cb)
+
+  const onWaitingRoomUpdate = (
+  cb: (d: any) => void
+) =>
+  socketRef.current?.on(
+    "waiting-room:update",
+    cb
+  )
+
+const onWaitingRoomApproved = (
+  cb: () => void
+) =>
+  socketRef.current?.on(
+    "waiting-room:approved",
+    cb
+  )
+
+const onWaitingRoomRejected = (
+  cb: () => void
+) =>
+  socketRef.current?.on(
+    "waiting-room:rejected",
+    cb
+  )
 
   // ================= NEW EXPOSED LISTENERS =================
   const onForceMute = (cb: () => void) =>
@@ -245,11 +284,13 @@ const onSystemMessage = (
   )
 
   return {
-    socket,
+    socket: socket,
+    socketRef,
 
     sendMessage,
     raiseHand,
     leaveMeeting,
+    requestJoinWaitingRoom,
     sendAudioLevel,
     updateMediaState,
 
@@ -264,6 +305,10 @@ const onSystemMessage = (
     onHostTransferred,
     onRemovedFromMeeting,
     onRoomUpdate,
+
+    onWaitingRoomUpdate,
+    onWaitingRoomApproved,
+    onWaitingRoomRejected,
 
     // NEW
     onForceMute,

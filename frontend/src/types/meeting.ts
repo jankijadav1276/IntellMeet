@@ -7,6 +7,20 @@ export interface Participant {
   email?: string
   avatar?: string
 }
+//================================
+// WAITING PARTICIPANTS
+// ===============================
+export interface WaitingParticipant {
+  user: string
+
+  name: string
+
+  joinedAt: string
+}
+
+export interface WaitingRoomUpdate {
+  waitingParticipants: WaitingParticipant[]
+}
 
 // ===============================
 // CHAT MESSAGE

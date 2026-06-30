@@ -187,7 +187,13 @@ startTime
               </span>
 
               <button
-                onClick={() => navigate(`/meetings/${meeting._id}`)}
+                onClick={() => {
+    if (meeting.host._id === user?._id) {
+      navigate(`/meetings/${meeting._id}`)
+    } else {
+      navigate(`/meetings/${meeting._id}/lobby`)
+    }
+  }}
                 className="bg-blue-600 px-3 py-1 text-white rounded"
               >
                 Join
@@ -310,7 +316,7 @@ startTime
               <button
                 onClick={() => {
                   if (!joinCode.trim()) return
-                  navigate(`/meetings/${joinCode}`)
+                  navigate(`/meetings/${joinCode}/lobby`)
                 }}
                 className="flex-1 bg-blue-600 p-2 rounded"
               >

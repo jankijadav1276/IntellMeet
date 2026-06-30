@@ -100,3 +100,22 @@ a{
   background:#475569;
   border-radius:10px;
 }
+
+/* ================= LIVE REACTIONS ================= */
+
+.reaction-float {
+  animation: floatReaction 2.5s ease-out forwards;
+  user-select: none;
+}
+
+@keyframes floatReaction {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-250px);
+  }
+}

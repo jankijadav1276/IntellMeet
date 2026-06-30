@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
-import { Mic, MicOff, Video, VideoOff, Phone,SquareX, ScreenShare, ScreenShareOff, Circle, StopCircle } from "lucide-react"
+import { Mic, MicOff, Video, VideoOff, Phone,SquareX, ScreenShare, ScreenShareOff, Circle, StopCircle, Smile, } from "lucide-react"
 import recordingService from "../../services/recordingService"
+import useAuthStore from "../../store/authStore"
 
 interface Props {
   micOn: boolean
@@ -34,7 +35,9 @@ export default function MeetingControls({
   onEndMeeting,
   socket,
 }: Props) {
+  const { user } = useAuthStore()
   const [isRecording, setIsRecording] = useState(false)
+  const [showReactions, setShowReactions] = useState(false)
   const mediaRecorderRef =
   useRef<MediaRecorder | null>(null)
 
@@ -175,6 +178,31 @@ const recordingIdRef =
     console.error(error)
   }
 }
+
+const reactions = [
+  "👍",
+  "👏",
+  "❤️",
+  "😂",
+  "🎉",
+  "😮",
+]
+
+const handleReaction = (emoji: string) => {
+  if (!socket) return
+
+  console.log("📤 Sending reaction:", emoji)
+
+  socket.emit("send-reaction", {
+  meetingId,
+  userId: user?._id,
+  name: user?.name,
+  emoji,
+})
+
+  setShowReactions(false)
+}
+
   return (
     <div className="flex items-center justify-center gap-3 bg-gray-900 border border-gray-800 rounded-xl p-3">
 
@@ -210,6 +238,30 @@ const recordingIdRef =
 >
   {isScreenSharing ? <ScreenShareOff /> : <ScreenShare />}
 </button>
+
+<div className="relative">
+  <button
+    onClick={() => setShowReactions(!showReactions)}
+    title="Reactions"
+    className="p-3 rounded-lg bg-gray-800 hover:bg-gray-700 transition"
+  >
+    <Smile />
+  </button>
+
+  {showReactions && (
+    <div className="absolute bottom-14 left-1/2 -translate-x-1/2 flex gap-2 bg-gray-900 border border-gray-700 rounded-xl p-2 shadow-xl">
+      {reactions.map((emoji) => (
+       <button
+  key={emoji}
+  onClick={() => handleReaction(emoji)}
+  className="text-2xl hover:scale-125 transition"
+>
+  {emoji}
+</button>
+      ))}
+    </div>
+  )}
+</div>
 
 {/* RECORDING (HOST ONLY) */}
 {isHost && (

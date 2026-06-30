@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { Socket } from "socket.io-client"
 import useAuthStore from "../store/authStore"
 import meetingService from "../services/meetingService"
+import useMediaStore from "../store/mediaStore"
 
 interface RemotePeer {
   peerId: string
@@ -21,6 +22,7 @@ export function useWebRTC(
   socket: Socket | null
 ) {
   const { user } = useAuthStore()
+  
   const lastMediaState = useRef({
   micOn: true,
   cameraOn: true,
@@ -120,6 +122,28 @@ pc.ontrack = (event) => {
           video: true,
           audio: true,
         })
+        
+        const savedMic = sessionStorage.getItem("meetingMic")
+const savedCamera = sessionStorage.getItem("meetingCamera")
+
+const micEnabled = savedMic !== "false"
+const cameraEnabled = savedCamera !== "false"
+
+stream.getAudioTracks().forEach(track => {
+  track.enabled = micEnabled
+})
+
+stream.getVideoTracks().forEach(track => {
+  track.enabled = cameraEnabled
+})
+
+setMicOn(micEnabled)
+setCameraOn(cameraEnabled)
+
+lastMediaState.current = {
+  micOn: micEnabled,
+  cameraOn: cameraEnabled,
+}
 
         if (!mounted) return
 
@@ -128,6 +152,11 @@ pc.ontrack = (event) => {
   stream.getVideoTracks()[0]
         setLocalStream(stream)
         setIsConnecting(false)
+
+        socket.emit("media-state", {
+  micOn: micEnabled,
+  cameraOn: cameraEnabled,
+})
 
         /* ================= ROOM SYNC ================= */
 handlers.roomUpdate = (data: any) => {
