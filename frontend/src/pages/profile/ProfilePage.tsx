@@ -33,13 +33,12 @@ return(
 
 <div className="min-h-screen bg-[#0f0f0f] text-white p-6">
 
-<div className="max-w-7xl mx-auto grid md:grid-cols-[280px_1fr] gap-6">
+<div className="max-w-7xl mx-auto grid md:grid-cols-[280px_1fr] gap-6 items-stretch">
 
 
 {/* Sidebar */}
 
-<div className="bg-[#181818] rounded-2xl p-5 h-fit">
-
+<div className="bg-[#181818] rounded-2xl p-5 self-stretch">
 
 <div className="text-center mb-8">
 
@@ -127,7 +126,7 @@ ${isActive?
 
 {/* Content */}
 
-<div className="bg-[#181818] rounded-2xl p-6">
+<div className="bg-[#181818] rounded-2xl p-6 min-h-full">
 
 <Outlet/>
 
