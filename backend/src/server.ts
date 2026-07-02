@@ -10,6 +10,7 @@ import connectDB from "./config/db"
 import authRoutes from "./routes/authRoutes"
 import meetingRoutes from "./routes/meetingRoutes"
 import recordingRoutes from "./routes/recordingRoutes"
+import teamRoutes from "./routes/teamRoutes";
 
 // Socket
 import { initSocket } from "./socket/socket"
@@ -67,6 +68,7 @@ app.get("/test", (req: Request, res: Response) => {
 app.use("/api/auth", authRoutes)
 app.use("/api/meetings", meetingRoutes)
 app.use("/api/recordings",recordingRoutes)
+app.use("/api/team", teamRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

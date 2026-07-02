@@ -31,15 +31,27 @@ export default function RecordingsPage() {
     queryFn: recordingService.getRecordings,
   })
 
-const filteredRecordings = useMemo(() => {
-  return recordings.filter(
-    (recording) =>
-      recording.status === "completed" &&
-      recording.meetingId
-        ?.toLowerCase()
-        .includes(search.toLowerCase())
-  )
-}, [recordings, search])
+  const handleDeleteRecording = async (id: string) => {
+    const confirm = window.confirm("Delete this recording?");
+    if (!confirm) return;
+
+    try {
+      await recordingService.deleteRecording(id);
+      refetch(); // refresh list
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to delete recording");
+    }
+  };
+
+  const filteredRecordings = useMemo(() => {
+    return recordings.filter(
+      (recording) =>
+        recording.status === "completed" &&
+        recording.meetingId
+          ?.toLowerCase()
+          .includes(search.toLowerCase())
+    )
+  }, [recordings, search])
 
   return (
     <Layout
@@ -202,7 +214,7 @@ const filteredRecordings = useMemo(() => {
 
                     <div>
                       <h3 className="font-semibold text-white">
-                       Meeting {recording.meetingId}
+                        Meeting {recording.meetingId}
                       </h3>
 
                       <p className="text-sm text-gray-400">
@@ -233,6 +245,7 @@ const filteredRecordings = useMemo(() => {
 
                 {/* Actions */}
                 <div className="flex gap-2">
+                  
                   <button
                     onClick={() =>
                       navigate(`/recordings/${recording._id}`)
@@ -255,6 +268,20 @@ const filteredRecordings = useMemo(() => {
 
                     View
                   </button>
+
+                  <button
+  onClick={() => handleDeleteRecording(recording._id)}
+  className="
+    px-3
+    py-2
+    rounded-xl
+    bg-red-600
+    hover:bg-red-700
+    text-white
+  "
+>
+  Delete
+</button>
                 </div>
               </div>
             ))}

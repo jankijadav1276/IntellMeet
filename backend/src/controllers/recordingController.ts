@@ -79,9 +79,12 @@ export const getMeetingRecordings = async (
     const meetingId =
       req.params.meetingId as string
 
+    const user = req.user as any
+
     const recordings =
       await getMeetingRecordingsService(
-        meetingId
+        meetingId,
+        user._id
       )
 
     res.status(200).json({
@@ -104,8 +107,12 @@ export const getAllRecordings = async (
   res: Response
 ) => {
   try {
+    const user = req.user as any
+
     const recordings =
-      await getAllRecordingsService()
+      await getAllRecordingsService(
+        user._id
+      )
 
     res.status(200).json({
       success: true,
@@ -130,9 +137,12 @@ export const getRecordingById = async (
     const recordingId =
       req.params.recordingId as string
 
+    const user = req.user as any
+
     const recording =
       await getRecordingByIdService(
-        recordingId
+        recordingId,
+        user._id
       )
 
     if (!recording) {
@@ -168,10 +178,14 @@ export const deleteRecording = async (
 
     const user = req.user as any
 
-    await deleteRecordingService(
-      recordingId,
-      user._id
-    )
+    const result = await deleteRecordingService(recordingId, user._id)
+
+    if (!result.success) {
+      return res.status(result.status || 500).json({
+        success: false,
+        message: result.message,
+      })
+    }
 
     res.status(200).json({
       success: true,
@@ -206,9 +220,9 @@ export const uploadRecording = async (
       })
     }
 
-  const file = (req as any).file
+    const file = (req as any).file
 
-if (!file) {
+    if (!file) {
       return res.status(400).json({
         success: false,
         message: "No file uploaded",
@@ -216,7 +230,7 @@ if (!file) {
     }
 
     recording.videoUrl =
-  `/uploads/recordings/${file.filename}`
+      `/uploads/recordings/${file.filename}`
 
     await recording.save()
 

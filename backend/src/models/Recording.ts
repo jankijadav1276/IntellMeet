@@ -6,6 +6,7 @@ createdBy:mongoose.Types.ObjectId
 videoUrl?:string
 duration:number
 status:"recording"|"completed"
+hiddenFor: mongoose.Types.ObjectId[]
 createdAt?:Date
 updatedAt?:Date
 }
@@ -43,6 +44,17 @@ enum:[
 ],
 default:"recording",
 },
+
+hiddenFor: {
+  type: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
+  default: [],
+},
+
 
 },
 {

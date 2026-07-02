@@ -15,7 +15,7 @@ type Participant = {
   speakingLevel: number
 }
 
-const rooms: Record<string, Participant[]> = {}
+export const rooms: Record<string, Participant[]> = {}
 
 const reconnectTimers: Record<
   string,
