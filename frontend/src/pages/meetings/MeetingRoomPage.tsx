@@ -1,11 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom"
 import { Hand, Loader2, WifiOff } from "lucide-react"
-import {
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-} from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { useSocket } from "../../hooks/useSocket"
 
 import Layout from "../../components/common/Layout"
@@ -20,6 +15,13 @@ import useAuthStore from "../../store/authStore"
 import { useChatStore } from "../../store/chatStore"
 
 
+function formatTime(seconds: number) {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+}
+
 export default function MeetingRoomPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -28,7 +30,7 @@ export default function MeetingRoomPage() {
       navigate("/dashboard", { replace: true })
     }
   }, [id, navigate])
-  
+
   const { user } = useAuthStore()
 
   const {
@@ -40,6 +42,7 @@ export default function MeetingRoomPage() {
 
   const [handRaised, setHandRaised] = useState(false)
   const [participants, setParticipants] = useState<any[]>([])
+  const [waitingParticipants, setWaitingParticipants] = useState<any[]>([])
   const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null)
   const [showChat, setShowChat] = useState(false)
   const [showTranscript, setShowTranscript] = useState(false)
@@ -55,22 +58,43 @@ export default function MeetingRoomPage() {
   >([])
   const [unreadCount, setUnreadCount] = useState(0)
 
-  const [toastMessage, setToastMessage] = useState<{
-    name: string
-    message: string
-  } | null>(null)
-  const [hostUserId, setHostUserId] = useState<string | null>(null)
-  const [reconnectingUser, setReconnectingUser] = useState<string | null>(null)
-  
+  const [toastMessage, setToastMessage] =
+    useState<{
+      name: string
+      message: string
+    } | null>(null)
+
+  const [reactions, setReactions] = useState<
+    {
+      id: number
+      emoji: string
+    }[]
+  >([])
+
+  const [hostUserId, setHostUserId] =
+    useState<string | null>(null)
+  const [reconnectingUser, setReconnectingUser] =
+    useState<string | null>(null)
+
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [isRecordingActive, setIsRecordingActive] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const {
     localStream,
     remotePeers,
+
     micOn,
     cameraOn,
+
     isScreenSharing,
     toggleScreenShare,
+
     toggleMic,
     toggleCamera,
+
     leaveCall,
     isConnecting,
     error: webrtcError,
@@ -84,9 +108,47 @@ export default function MeetingRoomPage() {
       useChatStore.getState().setMessages(history || [])
     })
 
-    socket.on("receiveMessage", (msg) => {
-      useChatStore.getState().addMessage(msg)
+        socket.on("receiveMessage",  (msg) => {
+          useChatStore.getState().addMessage(msg)
+
+      if (!showChat && msg.userId !== user?._id) {
+        setUnreadCount((prev) => prev + 1)
+
+        setToastMessage({
+          name: msg.name,
+          message: msg.message,
+        })
+
+        if (toastTimeoutRef.current) {
+          clearTimeout(toastTimeoutRef.current)
+        }
+
+        toastTimeoutRef.current = setTimeout(() => {
+          setToastMessage(null)
+        }, 3000)
+      }
     })
+
+
+    // ================= REACTIONS =================
+    socket.on("reaction-received", (data) => {
+      console.log("📥 Reaction received:", data);
+      const id = Date.now() + Math.random()
+
+      setReactions((prev) => [
+        ...prev,
+        {
+          id,
+          emoji: data.emoji,
+        },
+      ])
+
+      setTimeout(() => {
+        setReactions((prev) =>
+          prev.filter((r) => r.id !== id)
+        )
+      }, 2500)
+        })
 
     socket.on("live-transcript", (data) => {
       setTranscripts((prev) => [
@@ -97,7 +159,10 @@ export default function MeetingRoomPage() {
 
     // ================= ROOM SYNC =================
     const syncRoom = (data: any) => {
-      console.log("ROOM UPDATE RECEIVED", data)
+      console.log(
+        "ROOM UPDATE RECEIVED",
+        data
+      )
 
       const list = Array.isArray(data?.participants)
         ? data.participants
@@ -192,36 +257,99 @@ const handleMeetingEnded = () => {
 
     // ================= EVENT BIND =================
     socket.on("room-update", syncRoom)
-    socket.on("user-left", (data) => {
+    socket.on("user-left",data => {
       console.log("User left:", data)
-    })
+    }
+)
     socket.on("hand-update", syncRoom)
+
+    socket.on(
+      "waiting-room:update",
+      (data: any) => {
+        setWaitingParticipants(
+          data.waitingParticipants || []
+        )
+      }
+    )
+
     socket.on("active-speaker", handleActiveSpeaker)
     socket.on("meeting-ended", handleMeetingEnded)
     socket.on("host-transferred", handleHostTransfer)
     socket.on("removed-from-meeting", handleRemoved)
-    socket.on("user-reconnecting", handleUserReconnecting)
-    socket.on("system-message", handleSystemMessage)
+
+    socket.on(
+      "user-reconnecting",
+      handleUserReconnecting
+    )
+
+    socket.on(
+      "system-message",
+      handleSystemMessage
+    )
+    /* ================= RECORDING STATUS ================= */
+    socket.on("recording-status", (data: any) => {
+      if (data.recording) {
+        setIsRecordingActive(true)
+        setRecordingTime(0)
+
+        intervalRef.current = setInterval(() => {
+          setRecordingTime((prev) => prev + 1)
+        }, 1000)
+      } else {
+        setIsRecordingActive(false)
+
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
+      }
+    })
+
+    console.log("Current reactions:", reactions);
+
+    // ❌ REMOVE THIS (NOT USED IN BACKEND)
+    // socket.on("user-joined", syncParticipants)
 
     return () => {
       socket.off("room-update", syncRoom)
       socket.off("user-left", syncRoom)
       socket.off("hand-update", syncRoom)
+      socket.off("waiting-room:update")
+
       socket.off("active-speaker", handleActiveSpeaker)
       socket.off("meeting-ended", handleMeetingEnded)
       socket.off("host-transferred", handleHostTransfer)
       socket.off("removed-from-meeting", handleRemoved)
-      socket.off("user-reconnecting", handleUserReconnecting)
-      socket.off("system-message", handleSystemMessage)
+      socket.off(
+        "user-reconnecting",
+        handleUserReconnecting
+      )
+
+      socket.off(
+        "system-message",
+        handleSystemMessage
+      )
       socket.off("chat-history")
       socket.off("receiveMessage")
       socket.off("live-transcript")
+      socket.off("reaction-received")
+
+      socket.off("recording-status")
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current)
+      }
     }
   }, [
     socket,
     leaveCall,
     navigate,
     user?._id,
+    showChat,
   ])
 
   /* ================= SINGLE LEAVE FUNCTION ================= */
@@ -346,10 +474,21 @@ const remoteParticipants = useMemo(() => {
 
         {/* STATUS */}
         <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-sm text-gray-300">
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
             <span className="text-green-400">● Connected</span>
+
             <span>👥 {participants.length}</span>
+
             <span>🎥 Live Meeting</span>
+
+            {/* 🔴 RECORDING INDICATOR */}
+            {isRecordingActive && (
+              <span className="text-red-500 flex items-center gap-2 font-medium">
+                🔴 Recording • {formatTime(recordingTime)}
+              </span>
+            )}
+
+
           </div>
           <div className="text-xs text-gray-500">ID: {id}</div>
         </div>
@@ -433,6 +572,68 @@ const remoteParticipants = useMemo(() => {
           <div className="xl:col-span-1 space-y-4">
             <MeetingTimer />
 
+            {/* ================= WAITING ROOM ================= */}
+
+            {isHost && waitingParticipants.length > 0 && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+  <h3 className="text-sm font-semibold text-white">
+    Waiting Room ({waitingParticipants.length})
+  </h3>
+
+  <button
+    onClick={() =>
+      socket?.emit("approve-all-participants", {
+        meetingId: id,
+      })
+    }
+    className="px-3 py-1 rounded bg-green-600 hover:bg-green-500 text-xs text-white"
+  >
+    Admit All
+  </button>
+</div>
+
+                <div className="space-y-2">
+                  {waitingParticipants.map((participant: any) => (
+                    <div
+                      key={participant.user}
+                      className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2"
+                    >
+                      <span className="text-sm text-white">
+                        {participant.name}
+                      </span>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            socket?.emit("approve-participant", {
+                              meetingId: id,
+                              userId: participant.user,
+                            })
+                          }}
+                          className="px-3 py-1 rounded bg-green-600 hover:bg-green-500 text-xs text-white"
+                        >
+                          Admit
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            socket?.emit("reject-participant", {
+                              meetingId: id,
+                              userId: participant.user,
+                            })
+                          }}
+                          className="px-3 py-1 rounded bg-red-600 hover:bg-red-500 text-xs text-white"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <ParticipantList
               participants={sidebarParticipants}
               isCurrentUserHost={isHost}
@@ -499,12 +700,12 @@ const remoteParticipants = useMemo(() => {
                 raised,
               })
             }}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
-              handRaised
-                ? "bg-yellow-500 text-black"
-                : "bg-gray-800 text-white hover:bg-gray-700"
-            }`}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${handRaised
+              ? "bg-yellow-500 text-black"
+              : "bg-gray-800 text-white hover:bg-gray-700"
+              }`}
           >
+
             <Hand className="w-4 h-4" />
             {handRaised ? "Hand Raised" : "Raise Hand"}
           </button>
@@ -536,17 +737,33 @@ const remoteParticipants = useMemo(() => {
           </button>
         </div>
 
+        {/* LIVE REACTIONS */}
+        <div className="pointer-events-none fixed inset-0 overflow-hidden z-50">
+          {reactions.map((reaction) => (
+           <div
+            key={reaction.id}
+            className="absolute bottom-8 text-5xl reaction-float"
+            style={{
+            left: `calc(50% + ${Math.random() * 250 - 125}px)`,
+            }}
+            >
+            {reaction.emoji}
+          </div>
+          ))}
+        </div>
+
         {toastMessage && (
-          <div className="fixed top-5 right-5 z-50 bg-gray-900 border border-gray-700 shadow-xl rounded-xl p-4 min-w-[280px]">
+          <div className="fixed top-5 right-5 z-50 bg-gray-900 border border-gray-700 shadow-xl rounded-xl p-4 min-w-[280px] animate-pulse">
             <p className="text-blue-400 font-medium text-sm">
               {toastMessage.name}
             </p>
+
             <p className="text-gray-200 text-sm mt-1 truncate">
               {toastMessage.message}
             </p>
           </div>
         )}
-
+        {/* CONTROLS (ONLY ONE ACTION NOW) */}
         <MeetingControls
           micOn={micOn}
           cameraOn={cameraOn}
@@ -554,9 +771,18 @@ const remoteParticipants = useMemo(() => {
           onToggleCamera={toggleCamera}
           onLeave={handleLeave}
           isHost={isHost}
+
+          meetingId={id || ""}
+
+          socket={socket}
+
           isScreenSharing={isScreenSharing}
           onToggleScreenShare={toggleScreenShare}
+
           onEndMeeting={() => {
+            const ok = window.confirm("End meeting for everyone?")
+            if (!ok) return
+
             endMeeting()
           }}
         />

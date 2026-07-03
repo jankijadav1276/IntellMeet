@@ -68,20 +68,23 @@ const completedCount = meetings.filter(
 ).length
 
   /* ───────── Create Meeting ───────── */
-  const createMutation = useMutation({
-    mutationFn: meetingService.createMeeting,
-    onSuccess: (created: Meeting) => {
-      queryClient.setQueryData<Meeting[]>(["meetings"], (old = []) => [
-        created,
-        ...old,
-      ])
-      addMeeting(created)
-      closeModal()
-    },
-    onError: () => {
-      setFormError("Failed to create meeting. Try again.")
-    },
-  })
+ const createMutation=useMutation({
+mutationFn:(data:any)=>meetingService.createMeeting(data),
+onSuccess:(created)=>{
+queryClient.invalidateQueries({
+queryKey:["meetings"]
+})
+addMeeting(created)
+closeModal()
+},
+onError:(error:any)=>{
+console.log(error?.response?.data)
+setFormError(
+error?.response?.data?.message ||
+"Failed to create meeting. Please try again."
+)
+}
+})
 
   /* ───────── Helpers ───────── */
   function closeModal() {
@@ -108,10 +111,11 @@ e.preventDefault()
     ).toISOString()
 
     createMutation.mutate({
-      title: newMeeting.title.trim(),
-      startTime,
-      duration: newMeeting.duration,
-    })
+title:newMeeting.title.trim(),
+scheduledDate:newMeeting.date,
+scheduledTime:newMeeting.time,
+startTime
+})
   }
 
   /* ───────── UI ───────── */
@@ -243,7 +247,13 @@ e.preventDefault()
 </span>
 
               <button
-                onClick={() => navigate(`/meetings/${meeting._id}`)}
+                onClick={() => {
+    if (meeting.host._id === user?._id) {
+      navigate(`/meetings/${meeting._id}`)
+    } else {
+      navigate(`/meetings/${meeting._id}/lobby`)
+    }
+  }}
                 className="bg-blue-600 px-3 py-1 text-white rounded"
               >
                 Join
@@ -366,7 +376,7 @@ e.preventDefault()
               <button
                 onClick={() => {
                   if (!joinCode.trim()) return
-                  navigate(`/meetings/${joinCode}`)
+                  navigate(`/meetings/${joinCode}/lobby`)
                 }}
                 className="flex-1 bg-blue-600 p-2 rounded"
               >

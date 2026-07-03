@@ -1,7 +1,7 @@
 import {useNavigate} from "react-router-dom"
 import {Video, Copy, ArrowRight} from "lucide-react"
 import {useState} from "react"
-
+import meetingService from "../../services/meetingService"
 
 export default function CreateMeetingPage(){
 
@@ -10,23 +10,34 @@ const navigate=useNavigate()
 const [meetingId,setMeetingId]=useState("")
 
 
-const createMeeting=()=>{
+const createMeeting = async () => {
+try {
+const res = await meetingService.createMeeting({
+title: "New Meeting",
+startTime: new Date().toISOString(),
+duration: 30
+})
 
-const id=
-Math.random()
-.toString(36)
-.substring(2,10)
-
-
-setMeetingId(id)
-
+setMeetingId(res.meetingCode)
+} catch (err) {
+console.log("Create meeting failed", err)
+}
 }
 
 
-const joinRoom=()=>{
+const joinRoom = () => {
+  console.log("Join Room clicked")
+  console.log("meetingId:", meetingId)
 
-navigate(`/meeting/${meetingId}`)
+  if (!meetingId) {
+    console.log("Meeting ID is empty")
+    return
+  }
 
+  const url = `/meetings/${meetingId}/lobby`
+  console.log("Navigating to:", url)
+
+  navigate(url)
 }
 
 

@@ -296,13 +296,11 @@ className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 
 
 
 <button
-
+type="button"
+onClick={handleSubmit}
 className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg"
-
 >
-
 Create account
-
 </button>
 
 

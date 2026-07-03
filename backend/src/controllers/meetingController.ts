@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import Meeting from "../models/Meeting";
 import { AuthRequest } from "../middleware/authMiddleware";
+import {emitWaitingRoomUpdate,} from "../socket/socket";
 
 // ===============================
 // CREATE MEETING
@@ -430,71 +431,133 @@ const joinMeetingByCode = async (
 
     const user = req.user as any
 
-    const existingParticipant =
-  meeting.participants.find(
+    const existingParticipant = meeting.participants.find(
+  (participant: any) =>
+    participant.user.toString() === user._id.toString()
+)
+
+const existingWaitingParticipant =
+  meeting.waitingParticipants.find(
     (participant: any) =>
-      participant.user.toString() ===
-      user._id.toString()
+      participant.user.toString() === user._id.toString()
   )
 
-  if (!existingParticipant) {
+// User is already inside the meeting
+if (existingParticipant) {
+  if (!existingParticipant.isActive) {
+    existingParticipant.isActive = true
+    existingParticipant.leftAt = undefined
+    existingParticipant.joinedAt = new Date()
 
-  if (
-    meeting.participants.filter(
-      (p: any) => p.isActive
-    ).length >=
-    meeting.maxParticipants
-  ) {
-    res.status(400).json({
-      success: false,
-      message: "Meeting is full",
-    })
-    return
+    existingParticipant.role =
+      existingParticipant.user.toString() ===
+      meeting.host.toString()
+        ? "host"
+        : "participant"
   }
 
+  if (meeting.status === "scheduled") {
+    meeting.status = "active"
+  }
+
+  await meeting.save()
+
+  const populatedMeeting = await Meeting.findById(meeting._id)
+    .populate("host", "name email")
+    .populate("participants.user", "name email")
+
+  res.status(200).json({
+    success: true,
+    status: "joined",
+    message: "Joined meeting successfully",
+    meeting: populatedMeeting,
+  })
+
+  return
+}
+
+// User is already waiting
+if (existingWaitingParticipant) {
+  res.status(200).json({
+    success: true,
+    status: "waiting",
+    message: "Waiting for host approval.",
+  })
+
+  return
+}
+
+// Meeting Full
+if (
+  meeting.participants.filter((p: any) => p.isActive).length >=
+  meeting.maxParticipants
+) {
+  res.status(400).json({
+    success: false,
+    message: "Meeting is full",
+  })
+
+  return
+}
+
+// Host always joins immediately
+const isHost =
+  meeting.host.toString() === user._id.toString()
+
+// Auto Admit OR Host
+if (meeting.autoAdmit ) {
   meeting.participants.push({
     user: user._id,
-    role: "participant",
+    role: isHost ? "host" : "participant",
     joinedAt: new Date(),
     isActive: true,
   })
 
   meeting.totalParticipantsJoined += 1
 
-} else if (!existingParticipant.isActive) {
+  if (meeting.status === "scheduled") {
+    meeting.status = "active"
+  }
 
-  existingParticipant.isActive = true
+  await meeting.save()
 
-  existingParticipant.leftAt = undefined
+  const populatedMeeting = await Meeting.findById(meeting._id)
+    .populate("host", "name email")
+    .populate("participants.user", "name email")
 
-  existingParticipant.joinedAt =
-    new Date()
+  res.status(200).json({
+    success: true,
+    status: "joined",
+    message: "Joined meeting successfully",
+    meeting: populatedMeeting,
+  })
 
-  existingParticipant.role =
-  existingParticipant.user.toString() ===
-  meeting.host.toString()
-    ? "host"
-    : "participant"
+  return
 }
 
-if (meeting.status === "scheduled") {
-  meeting.status = "active"
-}
+// Waiting Room
+meeting.waitingParticipants.push({
+  user: user._id,
+  name: user.name,
+  joinedAt: new Date(),
+})
+
+const waitingPosition =
+  meeting.waitingParticipants.length
 
 await meeting.save()
 
-    const populatedMeeting = await Meeting.findById(meeting._id)
-      .populate("host", "name email")
-      .populate(
-  "participants.user",
-  "name email"
+await emitWaitingRoomUpdate(
+  meeting._id.toString()
 )
 
-    res.status(200).json({
-      success: true,
-      message: "Joined meeting successfully",
-      meeting: populatedMeeting,
-    })
+res.status(200).json({
+  success: true,
+  status: "waiting",
+  waitingPosition:
+    meeting.waitingParticipants.length,
+  message: "Waiting for host approval.",
+})
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -505,6 +568,44 @@ await meeting.save()
     })
   }
 }
+
+// ===============================
+// GET MEETING BY CODE (FOR SHARED LINK)
+// ===============================
+const getMeetingByCode = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { meetingCode } = req.params;
+
+    const meeting = await Meeting.findOne({
+      meetingCode,
+    }).populate("host", "name email");
+
+    if (!meeting) {
+      res.status(404).json({
+        success: false,
+        message: "Meeting not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      meeting,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Server Error",
+    });
+  }
+};
+
 
 const updateTranscript = async (
   req: AuthRequest,
@@ -552,5 +653,6 @@ export {
   updateMeeting,
   deleteMeeting,
   joinMeetingByCode,
+  getMeetingByCode,
   updateTranscript,
 }

@@ -19,6 +19,12 @@ const meetingService = {
     return res.data.meeting;
   },
 
+  // Get meeting details by meeting code (shared link)
+getMeetingByCode: async (meetingCode: string) => {
+  const res = await api.get(`/meetings/join/${meetingCode}`);
+  return res.data.meeting;
+},
+
   // Create a new meeting
   createMeeting: async (data: {
     title: string;
@@ -50,6 +56,15 @@ const meetingService = {
     const res = await api.delete(`/meetings/${id}`);
     return res.data;
   },
+
+  // Join meeting using meeting code
+joinMeetingByCode: async (meetingCode: string) => {
+  const res = await api.post("/meetings/join", {
+    meetingCode,
+  });
+
+  return res.data;
+},
 
   // Future Feature: Join Meeting
   joinMeeting: async (id: string) => {

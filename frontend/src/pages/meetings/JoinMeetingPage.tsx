@@ -7,9 +7,10 @@ export default function JoinMeetingPage() {
   const navigate = useNavigate()
 
   function handleJoin() {
-    if (!code.trim()) return
-    navigate(`/meeting/${code}`)
-  }
+  if (!code.trim()) return
+
+  navigate(`/meetings/${code}/lobby`)
+}
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white">
@@ -43,11 +44,11 @@ export default function JoinMeetingPage() {
           placeholder="https://app.com/meeting/123"
           className="w-full p-3 mt-2 bg-gray-800 border border-gray-700 rounded-lg"
           onBlur={(e) => {
-            const match = e.target.value.match(/meeting\/(.+)/)
-            if (match?.[1]) {
-              navigate(`/meeting/${match[1]}`)
-            }
-          }}
+  const match = e.target.value.match(/meeting\/(.+)/)
+  if (match?.[1]) {
+    navigate(`/meetings/${match[1]}/lobby`)
+  }
+}}
         />
       </div>
     </div>

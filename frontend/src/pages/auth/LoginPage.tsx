@@ -75,7 +75,14 @@ response.token
 )
 
 
-navigate("/dashboard")
+const redirect = localStorage.getItem("redirectAfterLogin")
+
+if (redirect) {
+  localStorage.removeItem("redirectAfterLogin")
+  navigate(redirect)
+} else {
+  navigate("/dashboard")
+}
 
 }
 
@@ -242,17 +249,12 @@ Forgot password?
 
 
 <button
-
-type="submit"
-
+type="button"
+onClick={handleSubmit}
 className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-sm"
-
 >
-
 Sign in
-
 </button>
-
 
 
 </form>

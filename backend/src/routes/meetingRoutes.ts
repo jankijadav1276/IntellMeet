@@ -6,6 +6,7 @@ import {
   createMeeting,
   getMyMeetings,
   getMeetingById,
+  getMeetingByCode,
   updateMeeting,
   deleteMeeting,
   joinMeetingByCode,
@@ -18,6 +19,15 @@ const router = express.Router()
 // CREATE MEETING
 // ===============================
 router.post("/", protect, createMeeting)
+
+// ===============================
+// GET MEETING BY LINK
+// ===============================
+router.get(
+  "/join/:meetingCode",
+  protect,
+  getMeetingByCode
+)
 
 // ===============================
 // JOIN MEETING BY CODE

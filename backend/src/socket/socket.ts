@@ -16,13 +16,33 @@ type Participant = {
   speakingLevel: number
 }
 
-const rooms: Record<string, Participant[]> = {}
+export const rooms: Record<string, Participant[]> = {}
 
 const reconnectTimers: Record<
   string,
   NodeJS.Timeout
 > = {}
 
+export const emitWaitingRoomUpdate = async (
+  meetingId: string
+) => {
+  const meeting = await Meeting.findById(
+    meetingId,
+    {
+      waitingParticipants: 1,
+    }
+  )
+
+  if (!meeting) return
+
+  io.to(meetingId).emit(
+    "waiting-room:update",
+    {
+      waitingParticipants:
+        meeting.waitingParticipants,
+    }
+  )
+}
 
 export const initSocket = (server: http.Server) => {
   io = new Server(server, {
@@ -191,6 +211,10 @@ socket.emit("existing-users", existingUsers)
         "chat-history",
         meetingChats?.chats || []
       )
+
+      if (isHost) {
+  await emitWaitingRoomUpdate(meetingId)
+}
               }
             )
 
@@ -301,6 +325,35 @@ socket.on(
   }
 )
 
+/* ================= LIVE REACTIONS ================= */
+
+socket.on(
+  "send-reaction",
+  ({ meetingId, userId, name, emoji }) => {
+    console.log("🔥 send-reaction event fired");
+    console.log({
+      meetingId,
+      userId,
+      name,
+      emoji,
+    });
+
+    if (!meetingId) {
+      console.log("❌ meetingId missing");
+      return;
+    }
+
+    io.to(meetingId).emit("reaction-received", {
+      socketId: socket.id,
+      userId,
+      name,
+      emoji,
+    });
+
+    console.log("✅ reaction broadcasted");
+  }
+);
+
     /* ================= MEDIA STATE ================= */
     socket.on("media-state", ({ micOn, cameraOn }) => {
       const meetingId = socket.data.meetingId
@@ -326,6 +379,212 @@ socket.on(
 
   await handleLeave(socket, meetingId)
 })
+
+
+/* ================= RECORDING ================= */
+
+
+socket.on(
+"recording-started",
+(data)=>{
+
+const meetingId=
+socket.data.meetingId
+
+if(!meetingId)return
+
+
+io.to(meetingId).emit(
+"recording-status",
+{
+recording:true,
+startedBy:data.userId
+}
+)
+
+})
+
+
+socket.on(
+"recording-stopped",
+()=>{
+
+
+const meetingId=
+socket.data.meetingId
+
+if(!meetingId)return
+
+
+io.to(meetingId).emit(
+"recording-status",
+{
+recording:false
+}
+)
+
+
+})
+
+
+/* ================= JOIN WAITING ROOM ================= */
+
+socket.on(
+  "join-waiting-room",
+  async ({ meetingId, userId, name }) => {
+
+    const meeting = await Meeting.findById(meetingId)
+
+    if (!meeting) {
+      socket.emit("meeting-not-found")
+      return
+    }
+
+    const alreadyWaiting = meeting.waitingParticipants.some(
+      (p: any) => p.user.toString() === userId
+    )
+
+    if (alreadyWaiting) return
+
+    meeting.waitingParticipants.push({
+      user: userId,
+      name,
+      joinedAt: new Date(),
+    } as any)
+
+    await meeting.save()
+
+    await emitWaitingRoomUpdate(meetingId)
+
+    console.log(`${name} joined waiting room`)
+  }
+)
+/* ================= HOST APPROVE WAITING USER ================= */
+
+socket.on(
+  "approve-participant",
+  async ({ meetingId, userId }) => {
+    const roomId = socket.data.meetingId
+    if (!roomId) return
+
+    const host = rooms[roomId]?.find(
+      (p) => p.socketId === socket.id
+    )
+
+    if (!host?.isHost) return
+
+    const meeting = await Meeting.findById(roomId)
+
+    if (!meeting) return
+
+    const waitingUser = meeting.waitingParticipants.find(
+      (p: any) => p.user.toString() === userId
+    )
+
+    if (!waitingUser) return
+
+    meeting.waitingParticipants =
+      meeting.waitingParticipants.filter(
+        (p: any) => p.user.toString() !== userId
+      )
+
+    meeting.participants.push({
+      user: waitingUser.user,
+      role: "participant",
+      joinedAt: new Date(),
+      isActive: true,
+    })
+
+    meeting.totalParticipantsJoined += 1
+
+    await meeting.save()
+
+    await emitWaitingRoomUpdate(roomId)
+
+    io.to(roomId).emit("participant-db-updated")
+
+    io.emit(`approved:${userId}`, {
+      meetingId: roomId,
+    })
+  }
+)
+
+/* ================= HOST ACCEPTS ALL WAITING USER ================= */
+
+socket.on(
+  "approve-all-participants",
+  async ({ meetingId }) => {
+    const roomId = socket.data.meetingId
+    if (!roomId) return
+
+    const host = rooms[roomId]?.find(
+      (p) => p.socketId === socket.id
+    )
+
+    if (!host?.isHost) return
+
+    const meeting = await Meeting.findById(roomId)
+
+    if (!meeting) return
+
+    // Move every waiting participant into the meeting
+    meeting.waitingParticipants.forEach((waitingUser: any) => {
+      meeting.participants.push({
+        user: waitingUser.user,
+        role: "participant",
+        joinedAt: new Date(),
+        isActive: true,
+      })
+
+      meeting.totalParticipantsJoined += 1
+    })
+
+    // Clear waiting room
+    meeting.waitingParticipants = []
+
+    await meeting.save()
+
+    await emitWaitingRoomUpdate(roomId)
+
+    io.to(roomId).emit("participant-db-updated")
+
+    // Notify every approved participant
+    meeting.participants.forEach((participant: any) => {
+      io.emit(`approved:${participant.user.toString()}`, {
+        meetingId: roomId,
+      })
+    })
+  }
+)/* ================= HOST REJECT WAITING USER ================= */
+
+socket.on(
+  "reject-participant",
+  async ({ meetingId, userId }) => {
+    const roomId = socket.data.meetingId
+    if (!roomId) return
+
+    const host = rooms[roomId]?.find(
+      (p) => p.socketId === socket.id
+    )
+
+    if (!host?.isHost) return
+
+    const meeting = await Meeting.findById(roomId)
+
+    if (!meeting) return
+
+    meeting.waitingParticipants =
+      meeting.waitingParticipants.filter(
+        (p: any) => p.user.toString() !== userId
+      )
+
+    await meeting.save()
+
+    await emitWaitingRoomUpdate(roomId)
+
+    io.emit(`rejected:${userId}`)
+  }
+)
 
     /* ================= WEBRTC ================= */
 const isValidParticipant = (meetingId: string, socketId: string) => {
@@ -554,6 +813,112 @@ socket.on(
     })
   }
 )
+
+/* ================= HOST: APPROVE WAITING USER ================= */
+
+socket.on(
+  "waiting-room:approve",
+  async ({ userId }) => {
+    const meetingId = socket.data.meetingId
+
+    if (!meetingId) return
+
+    const host = rooms[meetingId]?.find(
+      (p) => p.socketId === socket.id
+    )
+
+    if (!host?.isHost) return
+
+    const meeting = await Meeting.findById(meetingId)
+
+    if (!meeting) return
+
+    const waitingUser =
+      meeting.waitingParticipants.find(
+        (p: any) =>
+          p.user.toString() === userId
+      )
+
+    if (!waitingUser) return
+
+    meeting.waitingParticipants =
+      meeting.waitingParticipants.filter(
+        (p: any) =>
+          p.user.toString() !== userId
+      )
+
+    meeting.participants.push({
+      user: waitingUser.user,
+      role: "participant",
+      joinedAt: new Date(),
+      isActive: true,
+    } as any)
+
+    meeting.totalParticipantsJoined += 1
+
+    await meeting.save()
+
+    await emitWaitingRoomUpdate(meetingId)
+
+    io.to(meetingId).emit(
+      "waiting-room:approved",
+      {
+        userId,
+      }
+    )
+  }
+)
+
+/* ================= HOST: REJECT WAITING USER ================= */
+
+socket.on(
+  "waiting-room:reject",
+  async ({ userId }) => {
+    const meetingId = socket.data.meetingId
+
+    if (!meetingId) return
+
+    const host = rooms[meetingId]?.find(
+      (p) => p.socketId === socket.id
+    )
+
+    if (!host?.isHost) return
+
+    const meeting = await Meeting.findById(
+      meetingId
+    )
+
+    if (!meeting) return
+
+    const waitingUser =
+      meeting.waitingParticipants.find(
+        (p: any) =>
+          p.user.toString() === userId
+      )
+
+    if (!waitingUser) return
+
+    meeting.waitingParticipants =
+      meeting.waitingParticipants.filter(
+        (p: any) =>
+          p.user.toString() !== userId
+      )
+
+    await meeting.save()
+
+    await emitWaitingRoomUpdate(
+      meetingId
+    )
+
+    io.to(meetingId).emit(
+      "waiting-room:rejected",
+      {
+        userId,
+      }
+    )
+  }
+)
+
     /* ================= HOST: END MEETING ================= */
 socket.on("end-meeting", async () => {
   const meetingId = socket.data.meetingId

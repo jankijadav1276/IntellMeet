@@ -1,5 +1,6 @@
 import {
   Video,
+  Film,
   Users,
   BarChart2,
   LayoutDashboard,
@@ -40,6 +41,11 @@ const navItems = [
     label: "Analytics",
     icon: BarChart2,
     path: "/analytics"
+  },
+  {
+    label: "Recordings",
+    icon: Film,
+    path: "/recordings",
   }
 ]
 
@@ -67,14 +73,19 @@ export default function Sidebar({
 
       <aside
         className={`
-        fixed md:static z-50 h-screen bg-[#111827]
-        border-r border-gray-800 flex flex-col
-        transition-all duration-300 ease-in-out
+    fixed md:sticky md:top-0
+    z-50
+    h-screen
+    md:min-h-screen
+    bg-[#111827]
+    border-r border-gray-800
+    flex flex-col
+    transition-all duration-300 ease-in-out
 
-        ${mobileOpen ? "left-0" : "-left-full md:left-0"}
-        ${collapsed ? "md:w-20" : "md:w-60"}
-        w-60
-        `}
+    ${mobileOpen ? "left-0" : "-left-full md:left-0"}
+    ${collapsed ? "md:w-20" : "md:w-60"}
+    w-60
+  `}
       >
 
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
@@ -115,7 +126,7 @@ export default function Sidebar({
 
         <nav className="flex-1 px-2 py-5 space-y-2">
 
-          {navItems.map(({label,icon:Icon,path})=>{
+          {navItems.map(({ label, icon: Icon, path }) => {
 
             const isActive = location.pathname === path
 
@@ -123,7 +134,7 @@ export default function Sidebar({
 
               <button
                 key={label}
-                onClick={()=>{
+                onClick={() => {
                   navigate(path)
                   setMobileOpen(false)
                 }}
@@ -141,22 +152,21 @@ export default function Sidebar({
                 text-sm
                 transition-all
 
-                ${
-                  isActive
-                  ? "bg-blue-600/15 text-blue-400 border border-blue-500/30"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                }
+                ${isActive
+                    ? "bg-blue-600/15 text-blue-400 border border-blue-500/30"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }
                 `}
               >
 
                 {
                   isActive && (
-                    <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-500"/>
+                    <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-500" />
                   )
                 }
 
 
-                <Icon className="w-5 h-5"/>
+                <Icon className="w-5 h-5" />
 
 
                 {!collapsed && label}
@@ -179,7 +189,7 @@ export default function Sidebar({
 
 
             <button
-              onClick={()=>setProfileOpen(!profileOpen)}
+              onClick={() => setProfileOpen(!profileOpen)}
               className="w-full flex items-center justify-between gap-3"
             >
 
@@ -219,7 +229,7 @@ export default function Sidebar({
                 <ChevronDown
                   className={`
                   w-4 h-4 transition
-                  ${profileOpen ? "rotate-180":""}
+                  ${profileOpen ? "rotate-180" : ""}
                   `}
                 />
 
@@ -251,7 +261,7 @@ export default function Sidebar({
 
                   <button
 
-                    onClick={()=>navigate("/profile")}
+                    onClick={() => navigate("/profile")}
 
                     className="
                     w-full
@@ -265,7 +275,7 @@ export default function Sidebar({
 
                   >
 
-                    <User className="w-4 h-4"/>
+                    <User className="w-4 h-4" />
 
                     Profile
 
@@ -275,7 +285,7 @@ export default function Sidebar({
 
                   <button
 
-                    onClick={()=>navigate("/settings")}
+                    onClick={() => navigate("/settings")}
 
                     className="
                     w-full
@@ -289,7 +299,7 @@ export default function Sidebar({
 
                   >
 
-                    <Settings className="w-4 h-4"/>
+                    <Settings className="w-4 h-4" />
 
                     Settings
 
@@ -328,7 +338,7 @@ export default function Sidebar({
 
           >
 
-            <LogOut className="w-5 h-5"/>
+            <LogOut className="w-5 h-5" />
 
             {!collapsed && "Logout"}
 
