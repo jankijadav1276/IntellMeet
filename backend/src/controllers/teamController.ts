@@ -417,6 +417,105 @@ export const removeTeamMember = async (
   }
 };
 
+export const leaveTeam = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const team = await Team.findOne({
+      "members.user": req.user._id,
+    });
+
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: "Team not found",
+      });
+    }
+
+    // Owner cannot leave
+    if (team.createdBy.toString() === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "Team owner cannot leave the team. Delete the team instead.",
+      });
+    }
+
+    await Team.findByIdAndUpdate(team._id, {
+      $pull: {
+        members: {
+          user: req.user._id,
+        },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "You left the team successfully.",
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+
+  }
+};
+
+export const deleteTeam = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const team = await Team.findOne({
+      createdBy: req.user._id,
+    });
+
+    if (!team) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the team owner can delete the team.",
+      });
+    }
+
+    await team.deleteOne();
+
+    return res.status(200).json({
+      success: true,
+      message: "Team deleted successfully.",
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+
+  }
+};
+
 export const getOnlineMembers = async (
   req: AuthRequest,
   res: Response
