@@ -12,6 +12,7 @@ import {
 
 import Layout from "../../components/common/Layout"
 import api from "../../services/api"
+import useAuthStore from "../../store/authStore"
 
 interface TeamUser {
   _id: string
@@ -36,6 +37,7 @@ interface TeamMember {
 interface Team {
   _id: string
   name: string
+  createdBy: string
   members: TeamMember[]
 }
 
@@ -44,7 +46,13 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [error, setError] = useState("")
+  const { user } = useAuthStore()
   const [onlineUsers, setOnlineUsers] = useState<string[]>([])
+  //create team modal
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [teamName, setTeamName] = useState("")
+  const [creatingTeam, setCreatingTeam] = useState(false)
+  const [showCreateTeamButton, setShowCreateTeamButton] = useState(false)
   // Invite Modal
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
@@ -61,19 +69,33 @@ export default function TeamPage() {
       const res = await api.get("/team/my-team")
 
       setTeam(res.data.team)
+      setShowCreateTeamButton(false)
 
       const onlineRes = await api.get("/team/online")
       setOnlineUsers(onlineRes.data.onlineUsers)
 
       setError("")
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      setError("Failed to load team.")
+
+      if (err.response?.status === 404) {
+        setShowCreateTeamButton(true)
+        setError("")
+      } else {
+        setError("Failed to load team.")
+      }
     } finally {
       setLoading(false)
     }
   }
 
+
+  console.log("Logged in user:", user?._id)
+
+  console.log(
+    "Current Member:",
+    team?.members.find((m) => m.user._id === user?._id)
+  )
   useEffect(() => {
     fetchTeam()
   }, [])
@@ -102,7 +124,7 @@ export default function TeamPage() {
   const departments = 1
 
   const currentUser = team?.members.find(
-    (member) => member.role === "admin"
+    (member) => member.user._id === user?._id
   )
 
   const teamStats = [
@@ -160,6 +182,41 @@ export default function TeamPage() {
     }
   }
 
+  const handleCreateTeam = async () => {
+    if (!teamName.trim()) {
+      alert("Please enter a team name")
+      return
+    }
+
+    try {
+      setCreatingTeam(true)
+
+      await api.post("/team", {
+        name: teamName,
+      })
+
+      setShowCreateModal(false)
+      setShowCreateTeamButton(false)
+      setTeamName("")
+
+      await fetchTeam()
+
+      alert("✅ Team created successfully!")
+
+    } catch (err: any) {
+
+      alert(
+        err.response?.data?.message ||
+        "Failed to create team"
+      )
+
+    } finally {
+
+      setCreatingTeam(false)
+
+    }
+  }
+
   const handleRemoveMember = async (memberId: string) => {
     const confirmDelete = window.confirm(
       "Are you sure you want to remove this member from the team?"
@@ -179,6 +236,60 @@ export default function TeamPage() {
         "Failed to remove member."
       )
     }
+  }
+
+  const handleLeaveTeam = async () => {
+
+    const confirmLeave = window.confirm(
+      "Are you sure you want to leave this team?"
+    )
+
+    if (!confirmLeave) return
+
+    try {
+
+      await api.delete("/team/leave")
+
+      alert("✅ You left the team successfully.")
+
+      await fetchTeam()
+
+    } catch (err: any) {
+
+      alert(
+        err.response?.data?.message ||
+        "Failed to leave team."
+      )
+
+    }
+
+  }
+
+  const handleDeleteTeam = async () => {
+
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this team? This cannot be undone."
+    )
+
+    if (!confirmDelete) return
+
+    try {
+
+      await api.delete("/team")
+
+      alert("✅ Team deleted successfully.")
+
+      await fetchTeam()
+
+    } catch (err: any) {
+
+      alert(
+        err.response?.data?.message ||
+        "Failed to delete team."
+      )
+
+    }
+
   }
 
   return (
@@ -230,13 +341,50 @@ export default function TeamPage() {
 
           </div>
 
-          <button
-            onClick={() => setShowInviteModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 transition px-5 py-3 rounded-xl text-white"
-          >
-            <Plus className="w-4 h-4" />
-            Invite Member
-          </button>
+          <div className="flex gap-3">
+
+            {showCreateTeamButton ? (
+
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 transition px-5 py-3 rounded-xl text-white"
+              >
+                <Plus className="w-4 h-4" />
+                Create Team
+              </button>
+
+            ) : (
+
+              <>
+                {currentUser?.role === "admin" && (
+                  <button
+                    onClick={() => setShowInviteModal(true)}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 transition px-5 py-3 rounded-xl text-white"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Invite Member
+                  </button>
+                )}
+
+                {currentUser?.role === "admin" ? (
+                  <button
+                    onClick={handleDeleteTeam}
+                    className="px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 transition text-white"
+                  >
+                    Delete Team
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleLeaveTeam}
+                    className="px-5 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 transition text-white"
+                  >
+                    Leave Team
+                  </button>
+                )}
+              </>
+
+            )}
+          </div>
 
         </div>
 
@@ -554,6 +702,58 @@ export default function TeamPage() {
         </div>
       )}
 
+      {/*create team modal*/}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+
+          <div className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl p-6">
+
+            <h2 className="text-2xl font-semibold text-white mb-6">
+              Create Team
+            </h2>
+
+            <div className="mb-6">
+
+              <label className="block text-sm text-gray-400 mb-2">
+                Team Name
+              </label>
+
+              <input
+                type="text"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="Enter team name"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500"
+              />
+
+            </div>
+
+            <div className="flex justify-end gap-3">
+
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-5 py-2 rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleCreateTeam}
+                disabled={creatingTeam}
+                className={`px-5 py-2 rounded-lg text-white transition ${creatingTeam
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-500"
+                  }`}
+              >
+                {creatingTeam ? "Creating..." : "Create Team"}
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
 
     </Layout>
   )
