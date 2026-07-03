@@ -1,11 +1,18 @@
 import {useState} from "react"
-import {Link,useNavigate} from "react-router-dom"
+import {Link,useLocation,useNavigate} from "react-router-dom"
+
+
 import {Eye,EyeOff,Video} from "lucide-react"
 
 import useAuthStore from "../../store/authStore"
 import authService from "../../services/authService"
 
 export default function LoginPage(){
+
+    const location = useLocation()
+
+const from =
+  (location.state as any)?.from?.pathname || "/dashboard"
 
 const navigate=useNavigate()
 
@@ -64,25 +71,28 @@ password
 
 
 login(
-{
-_id:response._id,
-name:response.name,
-email:response.email,
-role:response.role,
-createdAt:new Date().toISOString()
-},
-response.token
+  {
+    _id: response._id,
+    name: response.name,
+    email: response.email,
+    role: response.role,
+    createdAt: new Date().toISOString(),
+  },
+  response.token
 )
 
+// wait until Zustand updates
+setTimeout(() => {
+  const redirect = localStorage.getItem("redirectAfterLogin")
 
-const redirect = localStorage.getItem("redirectAfterLogin")
+  if (redirect) {
+    localStorage.removeItem("redirectAfterLogin")
+    navigate(redirect, { replace: true })
+  } else {
+    navigate("/dashboard", { replace: true })
+  }
+}, 0)
 
-if (redirect) {
-  localStorage.removeItem("redirectAfterLogin")
-  navigate(redirect)
-} else {
-  navigate("/dashboard")
-}
 
 }
 

@@ -66,9 +66,9 @@ export default function AppRoutes() {
 <Route
   path="/join/:meetingCode"
   element={
-    
+    <PrivateRoute>
       <MeetingLobbyPage />
-  
+    </PrivateRoute>
   }
 />
 
