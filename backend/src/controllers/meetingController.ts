@@ -66,6 +66,10 @@ const createMeeting = async (
 
     const user = req.user as any;
 
+const meetingCode = uuidv4();
+
+
+
     const meeting = await Meeting.create({
       title,
       description,
@@ -85,11 +89,16 @@ status:
     : "scheduled",
 
 totalParticipantsJoined: 1,
-      meetingCode: uuidv4(),
+      meetingCode,
       startTime: start,
       duration: meetingDuration,
       endTime,
     });
+
+    meeting.meetingLink =
+  `${process.env.CLIENT_URL}/join/${meetingCode}`;
+
+await meeting.save();
 
     res.status(201).json({
       success: true,
@@ -106,6 +115,7 @@ totalParticipantsJoined: 1,
     });
   }
 };
+
 
 // ===============================
 // GET MY MEETINGS
@@ -496,6 +506,44 @@ await meeting.save()
   }
 }
 
+const updateTranscript = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { transcript } = req.body;
+
+    const meeting = await Meeting.findById(
+      req.params.id
+    );
+
+    if (!meeting) {
+      res.status(404).json({
+        success: false,
+        message: "Meeting not found",
+      });
+      return;
+    }
+
+    meeting.transcript = transcript || "";
+
+    await meeting.save();
+
+    res.status(200).json({
+      success: true,
+      transcript: meeting.transcript,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Server Error",
+    });
+  }
+};
+
 export {
   createMeeting,
   getMyMeetings,
@@ -504,4 +552,5 @@ export {
   updateMeeting,
   deleteMeeting,
   joinMeetingByCode,
+  updateTranscript,
 }

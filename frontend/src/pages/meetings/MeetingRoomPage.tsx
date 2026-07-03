@@ -1,6 +1,11 @@
 import { useNavigate, useParams } from "react-router-dom"
 import { Hand, Loader2, WifiOff } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react"
 import { useSocket } from "../../hooks/useSocket"
 
 import Layout from "../../components/common/Layout"
@@ -19,201 +24,205 @@ export default function MeetingRoomPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   useEffect(() => {
-  if (!id) {
-    navigate("/dashboard", { replace: true })
-  }
+    if (!id) {
+      navigate("/dashboard", { replace: true })
+    }
   }, [id, navigate])
   
   const { user } = useAuthStore()
 
-const {
-  socket,
-  transferHost,
-  removeUser,
-  endMeeting,
-} = useSocket(id)
+  const {
+    socket,
+    transferHost,
+    removeUser,
+    endMeeting,
+  } = useSocket(id)
 
   const [handRaised, setHandRaised] = useState(false)
   const [participants, setParticipants] = useState<any[]>([])
   const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null)
   const [showChat, setShowChat] = useState(false)
+  const [showTranscript, setShowTranscript] = useState(false)
+
+  const recognitionRef = useRef<any>(null)
+
+  const [transcripts, setTranscripts] = useState<
+    {
+      speaker: string
+      text: string
+      timestamp: string
+    }[]
+  >([])
   const [unreadCount, setUnreadCount] = useState(0)
 
-const [toastMessage, setToastMessage] =
-  useState<{
+  const [toastMessage, setToastMessage] = useState<{
     name: string
     message: string
   } | null>(null)
-  const [hostUserId, setHostUserId] =
-  useState<string | null>(null)
-  const [reconnectingUser, setReconnectingUser] =
-  useState<string | null>(null)
+  const [hostUserId, setHostUserId] = useState<string | null>(null)
+  const [reconnectingUser, setReconnectingUser] = useState<string | null>(null)
   
-const {
-  localStream,
-  remotePeers,
-
-  micOn,
-  cameraOn,
-
-  isScreenSharing,
-  toggleScreenShare,
-
-  toggleMic,
-  toggleCamera,
-
-  leaveCall,
-  isConnecting,
-  error: webrtcError,
-} = useWebRTC(id, socket)
+  const {
+    localStream,
+    remotePeers,
+    micOn,
+    cameraOn,
+    isScreenSharing,
+    toggleScreenShare,
+    toggleMic,
+    toggleCamera,
+    leaveCall,
+    isConnecting,
+    error: webrtcError,
+  } = useWebRTC(id, socket)
 
   /* ================= SOCKET EVENTS ================= */
-useEffect(() => {
-if (!socket) return
+  useEffect(() => {
+    if (!socket) return
 
-socket.on("chat-history", (history: any[]) => {
-  useChatStore.getState().setMessages(history || [])
-})
+    socket.on("chat-history", (history: any[]) => {
+      useChatStore.getState().setMessages(history || [])
+    })
 
-socket.on("receiveMessage",(msg) => {
-  useChatStore.getState().addMessage(msg)
-})
+    socket.on("receiveMessage", (msg) => {
+      useChatStore.getState().addMessage(msg)
+    })
 
-  // ================= ROOM SYNC =================
-const syncRoom = (data: any) => {
-  console.log(
-    "ROOM UPDATE RECEIVED",
-    data
-  )
+    socket.on("live-transcript", (data) => {
+      setTranscripts((prev) => [
+        ...prev.slice(-49),
+        data,
+      ])
+    })
 
-  const list = Array.isArray(data?.participants)
-    ? data.participants
-    : []
+    // ================= ROOM SYNC =================
+    const syncRoom = (data: any) => {
+      console.log("ROOM UPDATE RECEIVED", data)
 
-  console.log(
-    "Participants Count:",
-    list.length
-  )
+      const list = Array.isArray(data?.participants)
+        ? data.participants
+        : []
 
-  setParticipants(list)
+      console.log("Participants Count:", list.length)
 
-  const host = list.find(
-    (p: any) => p.isHost
-  )
+      setParticipants(list)
 
-  if (host?.userId) {
-    setHostUserId(host.userId)
-  }
+      const host = list.find((p: any) => p.isHost)
 
-  setReconnectingUser(null)
-}
-  // ================= ACTIVE SPEAKER =================
-  const handleActiveSpeaker = (data: any) => {
-    setActiveSpeaker(data?.socketId || null)
-  }
+      if (host?.userId) {
+        setHostUserId(host.userId)
+      }
 
-  // ================= MEETING ENDED =================
-  const handleMeetingEnded = () => {
-    leaveCall()
+      setReconnectingUser(null)
+    }
+
+    // ================= ACTIVE SPEAKER =================
+    const handleActiveSpeaker = (data: any) => {
+      setActiveSpeaker(data?.socketId || null)
+    }
+
+    // ================= MEETING ENDED =================
+const handleMeetingEnded = () => {
+  leaveCall()
+
+  const hasTranscript =
+    transcripts.length > 0
+
+  const hasChat =
+    useChatStore.getState().messages.length > 0
+
+  const shouldGenerateSummary =
+    hasTranscript || hasChat
+
+  if (shouldGenerateSummary) {
+    if (isHost) {
+      alert("Meeting ended. Generating AI insights...")
+      navigate(`/meetings/${id}/processing`, {
+        replace: true,
+      })
+    } else {
+      alert("Meeting ended.")
+      navigate("/dashboard", {
+        replace: true,
+      })
+    }
+  } else {
     alert("Meeting ended.")
-    navigate("/dashboard", { replace: true })
-  }
-
-  // ================= HOST TRANSFER =================
- const handleHostTransfer = (data: any) => {
-  const list = Array.isArray(
-    data?.participants
-  )
-    ? data.participants
-    : []
-
-  setParticipants(list)
-
-  const host = list.find(
-    (p: any) => p.isHost
-  )
-
-  if (host?.userId) {
-    setHostUserId(host.userId)
-  }
-
-  setReconnectingUser(null)
-
-  if (data.newHostUserId === user?._id) {
-    alert(
-      "You are now the meeting host."
-    )
+    navigate("/dashboard", {
+      replace: true,
+    })
   }
 }
 
-  const handleUserReconnecting = (data: any) => {
-  setReconnectingUser(data.userId)
-}
+    // ================= HOST TRANSFER =================
+    const handleHostTransfer = (data: any) => {
+      const list = Array.isArray(data?.participants)
+        ? data.participants
+        : []
 
-const handleSystemMessage = (data: any) => {
-  alert(data.message)
-}
+      setParticipants(list)
 
-  // ================= REMOVED =================
-  const handleRemoved = () => {
-    leaveCall()
-    alert("You were removed from the meeting.")
-    navigate("/dashboard", { replace: true })
-  }
+      const host = list.find((p: any) => p.isHost)
 
-  // ================= EVENT BIND =================
-  socket.on("room-update", syncRoom)
- socket.on("user-left", (data) => {
-  console.log("User left:", data)
-})
-  socket.on("hand-update", syncRoom)
+      if (host?.userId) {
+        setHostUserId(host.userId)
+      }
 
-  socket.on("active-speaker", handleActiveSpeaker)
-  socket.on("meeting-ended", handleMeetingEnded)
-  socket.on("host-transferred", handleHostTransfer)
-socket.on("removed-from-meeting", handleRemoved)
+      setReconnectingUser(null)
 
-socket.on(
-  "user-reconnecting",
-  handleUserReconnecting
-)
+      if (data.newHostUserId === user?._id) {
+        alert("You are now the meeting host.")
+      }
+    }
 
-socket.on(
-  "system-message",
-  handleSystemMessage
-)
+    const handleUserReconnecting = (data: any) => {
+      setReconnectingUser(data.userId)
+    }
 
-  // ❌ REMOVE THIS (NOT USED IN BACKEND)
-  // socket.on("user-joined", syncParticipants)
+    const handleSystemMessage = (data: any) => {
+      alert(data.message)
+    }
 
-  return () => {
-    socket.off("room-update", syncRoom)
-    socket.off("user-left", syncRoom)
-    socket.off("hand-update", syncRoom)
+    // ================= REMOVED =================
+    const handleRemoved = () => {
+      leaveCall()
+      alert("You were removed from the meeting.")
+      navigate("/dashboard", { replace: true })
+    }
 
-    socket.off("active-speaker", handleActiveSpeaker)
-    socket.off("meeting-ended", handleMeetingEnded)
-    socket.off("host-transferred", handleHostTransfer)
-    socket.off("removed-from-meeting", handleRemoved)
-    socket.off(
-  "user-reconnecting",
-  handleUserReconnecting
-)
+    // ================= EVENT BIND =================
+    socket.on("room-update", syncRoom)
+    socket.on("user-left", (data) => {
+      console.log("User left:", data)
+    })
+    socket.on("hand-update", syncRoom)
+    socket.on("active-speaker", handleActiveSpeaker)
+    socket.on("meeting-ended", handleMeetingEnded)
+    socket.on("host-transferred", handleHostTransfer)
+    socket.on("removed-from-meeting", handleRemoved)
+    socket.on("user-reconnecting", handleUserReconnecting)
+    socket.on("system-message", handleSystemMessage)
 
-socket.off(
-  "system-message",
-  handleSystemMessage
-)
-socket.off("chat-history")
-socket.off("receiveMessage")
-  }
-}, [
-  socket,
-  leaveCall,
-  navigate,
-  user?._id,
-  showChat,
-])
+    return () => {
+      socket.off("room-update", syncRoom)
+      socket.off("user-left", syncRoom)
+      socket.off("hand-update", syncRoom)
+      socket.off("active-speaker", handleActiveSpeaker)
+      socket.off("meeting-ended", handleMeetingEnded)
+      socket.off("host-transferred", handleHostTransfer)
+      socket.off("removed-from-meeting", handleRemoved)
+      socket.off("user-reconnecting", handleUserReconnecting)
+      socket.off("system-message", handleSystemMessage)
+      socket.off("chat-history")
+      socket.off("receiveMessage")
+      socket.off("live-transcript")
+    }
+  }, [
+    socket,
+    leaveCall,
+    navigate,
+    user?._id,
+  ])
 
   /* ================= SINGLE LEAVE FUNCTION ================= */
   function handleLeave() {
@@ -227,42 +236,109 @@ socket.off("receiveMessage")
     navigate("/dashboard", { replace: true })
   }
 
+  useEffect(() => {
+    if (!socket || !id) return
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
+
+    if (!SpeechRecognition) {
+      console.log("Speech Recognition not supported")
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognition.continuous = true
+    recognition.interimResults = false
+    recognition.lang = "en-US"
+
+    recognition.onresult = (event: any) => {
+      const text = event.results[event.results.length - 1][0].transcript
+
+      if (micOn && text && text.trim().length > 2) {
+        socket.emit("live-transcript", {
+          meetingId: id,
+          speaker: user?.name || "Unknown",
+          text,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    }
+
+    recognition.onerror = (err: any) => {
+      console.log("Speech Error:", err)
+    }
+
+    recognition.onend = () => {
+      console.log("Speech recognition ended.")
+    }
+
+    recognition.start()
+    recognitionRef.current = recognition
+
+    return () => {
+      recognition.stop()
+    }
+  }, [
+    socket,
+    id,
+    user?.name,
+    micOn,
+  ])
+
   /* ================= HOST CHECK ================= */
-      const isHost = useMemo(() => {
-  return Boolean(user?._id && hostUserId === user._id)
-}, [hostUserId, user?._id])
+  const isHost = useMemo(() => {
+    return Boolean(user?._id && hostUserId === user._id)
+  }, [hostUserId, user?._id])
 
   /* ================= PARTICIPANTS ================= */
- const sidebarParticipants = useMemo(() => {
-  return participants.map((p) => ({
-    id: p.socketId,
-    userId: p.userId,
-    name: p.name,
-    isHost: p.isHost,
-    raised: p.raisedHand,
-    micOn: p.micOn,
-    cameraOn: p.cameraOn,
-  }))
-}, [participants])
+  const sidebarParticipants = useMemo(() => {
+    return participants.map((p) => ({
+      id: p.socketId,
+      userId: p.userId,
+      name: p.name,
+      isHost: p.isHost,
+      raised: p.raisedHand,
+      micOn: p.micOn,
+      cameraOn: p.cameraOn,
+    }))
+  }, [participants])
 
-  /* ================= UNIQUE PEERS ================= */
-const uniquePeers = useMemo(() => {
-  const map = new Map()
+  /* ================= UNIQUE PEERS MAP ================= */
+const uniquePeersMap = useMemo(() => {
+  const map = new Map<string, typeof remotePeers[number]>()
 
-  remotePeers.forEach((p) => {
-    if (p?.peerId) {
-      map.set(p.peerId, p)
+  for (const peer of remotePeers) {
+    if (!peer.peerId) continue
+
+    const existing = map.get(peer.peerId)
+
+    if (!existing) {
+      map.set(peer.peerId, peer)
+      continue
     }
-  })
 
-  return Array.from(map.values())
+    // Always keep stream if available
+    if (!existing.stream && peer.stream) {
+      map.set(peer.peerId, peer)
+    }
+  }
+
+  return map
 }, [remotePeers])
 
+  /* ================= REMOTE PARTICIPANTS GRID LIST ================= */
+const remoteParticipants = useMemo(() => {
+  return participants
+    .filter(p => p.socketId !== socket?.id)
+}, [participants, socket?.id])
+
   /* ================= HAND SYNC ================= */
-useEffect(() => {
-  const me = participants.find((p) => p.userId === user?._id)
-  setHandRaised(Boolean(me?.raisedHand))
-}, [participants, user?._id])
+  useEffect(() => {
+    const me = participants.find((p) => p.userId === user?._id)
+    setHandRaised(Boolean(me?.raisedHand))
+  }, [participants, user?._id])
 
   return (
     <Layout title="Meeting Room" subtitle={`Room: ${id}`}>
@@ -286,42 +362,41 @@ useEffect(() => {
           </div>
         )}
         {reconnectingUser && (
-  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-4 py-2 text-yellow-400 text-sm">
-    User is reconnecting...
-  </div>
-)}
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-4 py-2 text-yellow-400 text-sm">
+            User is reconnecting...
+          </div>
+        )}
 
         <MeetingHeader
           meetingTitle={`Meeting ${id}`}
           meetingCode={id ?? ""}
-          participantCount={
-              sidebarParticipants.length
-            }
+          participantCount={sidebarParticipants.length}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
 
-          {/* VIDEO */}
+          {/* VIDEO GRID */}
           <div className="xl:col-span-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
 
-          <div className="relative">
-            <VideoTile
-              name={user?.name ?? "You"}
-              stream={localStream}
-              isLocal
-              isHost={isHost}
-              micOn={micOn}
-              cameraOn={cameraOn}
-              isActiveSpeaker={activeSpeaker === socket?.id}
-            />
+              {/* Local User Camera Tile */}
+              <div className="relative">
+                <VideoTile
+                  name={user?.name ?? "You"}
+                  stream={localStream}
+                  isLocal
+                  isHost={isHost}
+                  micOn={micOn}
+                  cameraOn={cameraOn}
+                  isActiveSpeaker={activeSpeaker === socket?.id}
+                />
 
-            {isScreenSharing && (
-              <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-lg">
-                Sharing Screen
+                {isScreenSharing && (
+                  <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-lg">
+                    Sharing Screen
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
               {isConnecting && !localStream && (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl h-64 flex items-center justify-center gap-2 text-gray-400">
@@ -330,16 +405,23 @@ useEffect(() => {
                 </div>
               )}
 
-              {uniquePeers.map((peer) => (
-                <VideoTile
-                  key={peer.peerId}
-                  name={peer.name}
-                  stream={peer.stream}
-                  isActiveSpeaker={activeSpeaker === peer.peerId}
-                />
-              ))}
+              {/* FIXED: Map over remote participants list from server state to lock grid structure */}
+              {remoteParticipants.map((participant) => {
+                const matchedPeer = uniquePeersMap.get(participant.socketId)
+                return (
+<VideoTile
+  key={participant.socketId}
+  name={participant.name}
+  stream={matchedPeer?.stream ?? null}
+  micOn={participant.micOn}
+  cameraOn={participant.cameraOn}
+  isHost={participant.isHost}
+  isActiveSpeaker={activeSpeaker === participant.socketId}
+/>
+                )
+              })}
 
-              {uniquePeers.length === 0 && !isConnecting && (
+              {participants.length <= 1 && !isConnecting && (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl h-64 flex items-center justify-center text-gray-500">
                   Waiting for others to join...
                 </div>
@@ -348,25 +430,25 @@ useEffect(() => {
           </div>
 
           {/* SIDEBAR */}
-       <div className="xl:col-span-1 space-y-4">
+          <div className="xl:col-span-1 space-y-4">
             <MeetingTimer />
 
-      <ParticipantList
-        participants={sidebarParticipants}
-        isCurrentUserHost={isHost}
-        currentUserId={user?._id}
-        onMute={(socketId) => {
-          socket?.emit("mute-user", {
-            targetSocketId: socketId,
-          })
-        }}
-        onRemove={(socketId) => {
-          removeUser(socketId)
-        }}
-        onTransferHost={(userId) => {
-          transferHost(userId)
-        }}
-      />
+            <ParticipantList
+              participants={sidebarParticipants}
+              isCurrentUserHost={isHost}
+              currentUserId={user?._id}
+              onMute={(socketId) => {
+                socket?.emit("mute-user", {
+                  targetSocketId: socketId,
+                })
+              }}
+              onRemove={(socketId) => {
+                removeUser(socketId)
+              }}
+              onTransferHost={(userId) => {
+                transferHost(userId)
+              }}
+            />
 
             {showChat && (
               <ChatPanel
@@ -374,11 +456,36 @@ useEffect(() => {
                 meetingId={id}
               />
             )}
+ 
+            {showTranscript && (
+              <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto">
+                <h3 className="text-white font-semibold mb-3">
+                  Live Transcript
+                </h3>
+
+                {transcripts.length === 0 ? (
+                  <p className="text-gray-500 text-sm">
+                    Waiting for transcript...
+                  </p>
+                ) : (
+                  transcripts.map((item, index) => (
+                    <div key={index} className="mb-3">
+                      <p className="text-blue-400 text-sm font-medium">
+                        {item.speaker}
+                      </p>
+                      <p className="text-gray-200 text-sm">
+                        {item.text}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            
           </div>
         </div>
 
-        {/* HAND RAISE */}
-        {/* HAND RAISE + CHAT */}
+        {/* CONTROLS */}
         <div className="flex justify-center gap-3">
           <button
             onClick={() => {
@@ -398,64 +505,61 @@ useEffect(() => {
                 : "bg-gray-800 text-white hover:bg-gray-700"
             }`}
           >
-
-           
             <Hand className="w-4 h-4" />
             {handRaised ? "Hand Raised" : "Raise Hand"}
           </button>
 
-           <button
-                title="Chat"
-                onClick={() => {
-                      const next = !showChat
+          <button
+            title="Chat"
+            onClick={() => {
+              const next = !showChat
+              setShowChat(next)
+              if (next) {
+                setUnreadCount(0)
+              }
+            }}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
+          >
+            {showChat ? "Hide Chat" : "Open Chat"}
+            {!showChat && unreadCount > 0 && (
+              <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </button>
 
-                      setShowChat(next)
-
-                      if (next) {
-                        setUnreadCount(0)
-                      }
-                    }}
-                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
-              >
-                
-              {showChat ? "Hide Chat" : "Open Chat"}
-
-              {!showChat &&
-                unreadCount > 0 && (
-                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {unreadCount}
-                  </span>
-                )}
-
-            </button>
+          <button
+            onClick={() => setShowTranscript(!showTranscript)}
+            className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white"
+          >
+            {showTranscript ? "Hide Transcript" : "Transcript"}
+          </button>
         </div>
-{toastMessage && (
-  <div className="fixed top-5 right-5 z-50 bg-gray-900 border border-gray-700 shadow-xl rounded-xl p-4 min-w-[280px] animate-pulse">
-    <p className="text-blue-400 font-medium text-sm">
-      {toastMessage.name}
-    </p>
 
-    <p className="text-gray-200 text-sm mt-1 truncate">
-      {toastMessage.message}
-    </p>
-  </div>
-)}
-        {/* CONTROLS (ONLY ONE ACTION NOW) */}
-      <MeetingControls
-        micOn={micOn}
-        cameraOn={cameraOn}
-        onToggleMic={toggleMic}
-        onToggleCamera={toggleCamera}
-        onLeave={handleLeave}
-        isHost={isHost}
+        {toastMessage && (
+          <div className="fixed top-5 right-5 z-50 bg-gray-900 border border-gray-700 shadow-xl rounded-xl p-4 min-w-[280px]">
+            <p className="text-blue-400 font-medium text-sm">
+              {toastMessage.name}
+            </p>
+            <p className="text-gray-200 text-sm mt-1 truncate">
+              {toastMessage.message}
+            </p>
+          </div>
+        )}
 
-        isScreenSharing={isScreenSharing}
-        onToggleScreenShare={toggleScreenShare}
-
-        onEndMeeting={() => {
-          endMeeting()
-        }}
-      />
+        <MeetingControls
+          micOn={micOn}
+          cameraOn={cameraOn}
+          onToggleMic={toggleMic}
+          onToggleCamera={toggleCamera}
+          onLeave={handleLeave}
+          isHost={isHost}
+          isScreenSharing={isScreenSharing}
+          onToggleScreenShare={toggleScreenShare}
+          onEndMeeting={() => {
+            endMeeting()
+          }}
+        />
       </div>
     </Layout>
   )

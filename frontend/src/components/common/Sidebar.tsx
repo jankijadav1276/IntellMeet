@@ -10,7 +10,7 @@ import {
   User,
   Settings
 } from "lucide-react"
-
+import { FileText } from "lucide-react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "../../hooks/useAuth"
 import { useState } from "react"
@@ -26,6 +26,11 @@ const navItems = [
     icon: Video,
     path: "/meetings"
   },
+  {
+  label: "Meeting History",
+  icon: FileText,
+  path: "/meetings/history"
+},
   {
     label: "Team",
     icon: Users,

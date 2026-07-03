@@ -6,6 +6,8 @@ interface RemotePeer {
   peerId: string
   name: string
   stream: MediaStream | null
+  micOn?: boolean
+  cameraOn?: boolean
 }
 
 const ICE_SERVERS = {
@@ -20,98 +22,435 @@ export function useWebRTC(
   socket: Socket | null
 ) {
   const { user } = useAuthStore()
-  const lastMediaState = useRef({
-  micOn: true,
-  cameraOn: true,
-})
+  const lastMediaState = useRef({ micOn: true, cameraOn: true })
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([])
   const [micOn, setMicOn] = useState(true)
   const [cameraOn, setCameraOn] = useState(true)
-  const [isScreenSharing, setIsScreenSharing] =
-  useState(false)
+  const [isScreenSharing, setIsScreenSharing] = useState(false)
 
-const screenTrackRef =
-  useRef<MediaStreamTrack | null>(null)
-const cameraTrackRef =
-  useRef<MediaStreamTrack | null>(null)
+  const screenTrackRef = useRef<MediaStreamTrack | null>(null)
+  const cameraTrackRef = useRef<MediaStreamTrack | null>(null)
   const [isConnecting, setIsConnecting] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const localStreamRef = useRef<MediaStream | null>(null)
   const peerMap = useRef<Map<string, RTCPeerConnection>>(new Map())
-  const pendingIceCandidates = useRef<
-  Map<string, RTCIceCandidateInit[]>
-> (new Map())
+  const remoteStreams = useRef<Map<string, MediaStream>>(new Map())
+  const pendingIceCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map())
 
-const makingOffer = useRef(false)
-  /* ================= PEER CREATION ================= */
-  const createPeer = useCallback(
-    (peerId: string) => {
-      if (peerMap.current.has(peerId)) {
-        return peerMap.current.get(peerId)!
+  const makingOffersSet = useRef<Set<string>>(new Set())
+  const ignoreOfferMap = useRef<Map<string, boolean>>(new Map())
+
+const makeOffer = useCallback(
+  async (pc: RTCPeerConnection, peerId: string) => {
+    if (!socket) return
+
+    if (makingOffersSet.current.has(peerId)) {
+      return
+    }
+
+    if (pc.signalingState !== "stable") {
+      console.log("Skip offer. Signaling:", pc.signalingState)
+      return
+    }
+
+    try {
+      makingOffersSet.current.add(peerId)
+
+      const offer = await pc.createOffer()
+
+      if (pc.signalingState !== "stable") {
+        return
       }
 
-      const pc = new RTCPeerConnection(ICE_SERVERS)
+      await pc.setLocalDescription(offer)
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket?.emit("webrtc-ice-candidate", {
-            targetSocketId: peerId,
-            candidate: event.candidate,
-          })
-        }
-      }
+      socket.emit("webrtc-offer", {
+        targetSocketId: peerId,
+        offer: pc.localDescription,
+      })
 
-pc.ontrack = (event) => {
-  const [stream] = event.streams
-  console.log(
-  "TRACK RECEIVED:",
-  peerId
+      console.log("📤 Offer sent to", peerId)
+    } catch (err) {
+      console.error("Offer error:", err)
+    } finally {
+      makingOffersSet.current.delete(peerId)
+    }
+  },
+  [socket]
 )
 
-  setRemotePeers((prev) => {
-    const exists = prev.find(
-      (p) => p.peerId === peerId
-    )
+  /* ================= PEER CREATION ================= */
+const createPeer = useCallback(
+  (peerId: string) => {
+    const existing = peerMap.current.get(peerId)
+    if (existing) {
+      return existing
+    }
 
-    if (exists) {
-      return prev.map((p) =>
-        p.peerId === peerId
-          ? { ...p, stream }
-          : p
+    const pc = new RTCPeerConnection({
+      iceServers: ICE_SERVERS.iceServers,
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require",
+      iceCandidatePoolSize: 20,
+    })
+
+    // Add local tracks
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => {
+        pc.addTrack(track, localStreamRef.current!)
+      })
+    }
+
+    // Receive remote tracks
+    pc.ontrack = (event) => {
+      console.log("🎥 Track:", peerId, event.track.kind)
+
+      let remoteStream = remoteStreams.current.get(peerId)
+
+      if (!remoteStream) {
+        remoteStream = new MediaStream()
+        remoteStreams.current.set(peerId, remoteStream)
+      }
+
+      if (
+        !remoteStream.getTracks().some(
+          (t) => t.id === event.track.id
+        )
+      ) {
+        remoteStream.addTrack(event.track)
+      }
+
+      setRemotePeers((prev) =>
+        prev.map((peer) =>
+          peer.peerId === peerId
+            ? {
+                ...peer,
+                stream: remoteStream!,
+              }
+            : peer
+        )
       )
     }
 
-    return [
-      ...prev,
-      {
-        peerId,
-        name: "Participant",
-        stream,
-      },
-    ]
-  })
-}
+    // ICE Candidate
+    pc.onicecandidate = (event) => {
+      if (!event.candidate) return
 
-      localStreamRef.current?.getTracks().forEach((track) => {
-        pc.addTrack(track, localStreamRef.current!)
+      socket?.emit("webrtc-ice-candidate", {
+        targetSocketId: peerId,
+        candidate: event.candidate,
       })
+    }
 
-      peerMap.current.set(peerId, pc)
-      return pc
-    },
-    [socket]
+    // ICE state
+    pc.oniceconnectionstatechange = () => {
+      console.log(
+        "ICE:",
+        peerId,
+        pc.iceConnectionState
+      )
+    }
+
+    // Connection state
+    pc.onconnectionstatechange = () => {
+      console.log(
+        "Connection:",
+        peerId,
+        pc.connectionState
+      )
+
+      switch (pc.connectionState) {
+        case "connected":
+          break
+
+        case "disconnected":
+          setTimeout(() => {
+            if (
+              pc.connectionState === "disconnected"
+            ) {
+              pc.close()
+            }
+          }, 5000)
+          break
+case "failed":
+case "closed":
+  peerMap.current.delete(peerId)
+  remoteStreams.current.delete(peerId)
+  pendingIceCandidates.current.delete(peerId)
+  makingOffersSet.current.delete(peerId)
+  ignoreOfferMap.current.delete(peerId)
+
+  pc.close()
+
+  setRemotePeers((prev) =>
+    prev.filter((p) => p.peerId !== peerId)
   )
 
-  /* ================= INIT ================= */
+  break
+      }
+    }
+
+    peerMap.current.set(peerId, pc)
+
+    return pc
+  },
+  [socket]
+)
+
+  /* ================= INIT & SIGNALING ROUTERS ================= */
   useEffect(() => {
     if (!meetingId || !user || !socket) return
 
     let mounted = true
 
-    const handlers: Record<string, any> = {}
+    const handleRoomUpdate = (data: any) => {
+      const participants = data.participants || []
+      const activeIds = participants.map((p: any) => p.socketId)
+
+      // 1. Remove track connections for users who actually left
+      peerMap.current.forEach((pc, peerId) => {
+        if (!activeIds.includes(peerId)) {
+          pc.close()
+          peerMap.current.delete(peerId)
+          pendingIceCandidates.current.delete(peerId)
+          remoteStreams.current.delete(peerId)
+          makingOffersSet.current.delete(peerId)
+          ignoreOfferMap.current.delete(peerId)
+        }
+      })
+
+      // 2. Map structural state array updates safely without shifting ongoing video instances
+      setRemotePeers((prev) => {
+        return participants
+          .filter((p: any) => p.socketId !== socket.id) // Filter out yourself
+          .map((p: any) => {
+            const existingPeer = prev.find((peer) => peer.peerId === p.socketId)
+            return {
+              peerId: p.socketId,
+              name: p.name,
+              stream: existingPeer ? existingPeer.stream : null,
+              micOn: p.micOn ?? true,
+              cameraOn: p.cameraOn ?? true,
+            }
+          })
+      })
+
+    }
+
+    const handleUserJoined = async (data: any) => {
+      const { newUser } = data
+      if (!newUser || newUser.socketId === socket.id) return
+
+      setRemotePeers((prev) => {
+        if (prev.some((p) => p.peerId === newUser.socketId)) return prev
+        return [
+          ...prev, 
+          { 
+            peerId: newUser.socketId, 
+            name: newUser.name, 
+            stream: null,
+            micOn: newUser.micOn ?? true,
+            cameraOn: newUser.cameraOn ?? true
+          }
+        ]
+      })
+
+     const pc = createPeer(newUser.socketId)
+
+await new Promise(resolve => setTimeout(resolve, 100))
+
+await makeOffer(pc, newUser.socketId)
+    }
+
+const handleOffer = async ({
+  senderSocketId,
+  offer,
+}: any) => {
+  console.log("📥 OFFER FROM:", senderSocketId)
+
+  const pc = createPeer(senderSocketId)
+
+  const makingOffer =
+    makingOffersSet.current.has(senderSocketId)
+
+  const polite = socket!.id! > senderSocketId
+
+  const offerCollision =
+    offer.type === "offer" &&
+    (makingOffer || pc.signalingState !== "stable")
+
+  if (offerCollision && !polite) {
+    console.log("Ignoring colliding offer")
+    return
+  }
+
+  try {
+    if (
+      offerCollision &&
+      pc.signalingState === "have-local-offer"
+    ) {
+      await pc.setLocalDescription({
+        type: "rollback",
+      })
+    }
+
+    await pc.setRemoteDescription(
+      new RTCSessionDescription(offer)
+    )
+
+    const queued =
+      pendingIceCandidates.current.get(
+        senderSocketId
+      ) || []
+
+    for (const candidate of queued) {
+      try {
+        await pc.addIceCandidate(
+          new RTCIceCandidate(candidate)
+        )
+      } catch (err) {
+        console.error("ICE Queue Error", err)
+      }
+    }
+
+    pendingIceCandidates.current.delete(
+      senderSocketId
+    )
+
+    const answer = await pc.createAnswer()
+
+    await pc.setLocalDescription(answer)
+
+    socket?.emit("webrtc-answer", {
+      targetSocketId: senderSocketId,
+      answer: pc.localDescription,
+    })
+
+    console.log("📤 ANSWER SENT:", senderSocketId)
+  } catch (err) {
+    console.error("Offer Handling Error:", err)
+  }
+}
+
+const handleAnswer = async ({
+  senderSocketId,
+  answer,
+}: any) => {
+  const pc = peerMap.current.get(senderSocketId)
+
+  if (!pc) {
+    return
+  }
+
+  try {
+    if (pc.signalingState !== "have-local-offer") {
+      console.log(
+        "Ignoring unexpected answer from",
+        senderSocketId,
+        pc.signalingState
+      )
+      return
+    }
+
+    await pc.setRemoteDescription(
+      new RTCSessionDescription(answer)
+    )
+
+    const queued =
+      pendingIceCandidates.current.get(senderSocketId) || []
+
+    for (const candidate of queued) {
+      try {
+        await pc.addIceCandidate(
+          new RTCIceCandidate(candidate)
+        )
+      } catch (err) {
+        console.error("Queued ICE Error:", err)
+      }
+    }
+
+    pendingIceCandidates.current.delete(senderSocketId)
+
+    console.log("✅ Remote answer applied:", senderSocketId)
+  } catch (err) {
+    console.error("Answer handling failed:", err)
+  }
+}
+
+    const handleIce = async ({ senderSocketId, candidate }: any) => {
+      const pc = peerMap.current.get(senderSocketId)
+      
+      if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate))
+        } catch (err) {
+          console.log("Safe ignore transient ICE candidate parsing loop exception pathway.")
+        }
+      } else {
+        const queue = pendingIceCandidates.current.get(senderSocketId) || []
+        queue.push(candidate)
+        pendingIceCandidates.current.set(senderSocketId, queue)
+      }
+    }
+
+    const handleUserLeft = ({ socketId }: any) => {
+      console.log(`👤 User Left Signaling Clean Up: ${socketId}`)
+      
+      peerMap.current.get(socketId)?.close()
+      peerMap.current.delete(socketId)
+      remoteStreams.current.delete(socketId)
+      pendingIceCandidates.current.delete(socketId)
+      makingOffersSet.current.delete(socketId)
+      ignoreOfferMap.current.delete(socketId)
+      
+      // FIXED: Uses structural peerId mapping condition correctly
+      setRemotePeers((prev) => prev.filter((p) => p.peerId !== socketId))
+    }
+
+    const handleExistingUsers = async (users: any[]) => {
+      for (const peer of users) {
+        if (peer.socketId === socket.id) continue
+
+        setRemotePeers((prev) => {
+          if (prev.some((p) => p.peerId === peer.socketId)) return prev
+          return [
+            ...prev, 
+            { 
+              peerId: peer.socketId, 
+              name: peer.name, 
+              stream: null,
+              micOn: peer.micOn ?? true,
+              cameraOn: peer.cameraOn ?? true
+            }
+          ]
+        })
+
+        const pc = createPeer(peer.socketId)
+
+await new Promise(resolve => setTimeout(resolve, 100))
+
+await makeOffer(pc, peer.socketId)
+
+      }
+    }
+
+    const handleForceMute = () => {
+      const audioTrack = localStreamRef.current?.getAudioTracks()[0]
+      if (audioTrack) {
+        audioTrack.enabled = false
+        setMicOn(false)
+        lastMediaState.current.micOn = false
+
+        socket.emit("media-state", {
+          micOn: false,
+          cameraOn: lastMediaState.current.cameraOn,
+        })
+        alert("Host muted your microphone.")
+      }
+    }
 
     const init = async () => {
       try {
@@ -120,504 +459,183 @@ pc.ontrack = (event) => {
           audio: true,
         })
 
-        if (!mounted) return
+        if (!mounted) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
 
         localStreamRef.current = stream
-        cameraTrackRef.current =
-  stream.getVideoTracks()[0]
+        cameraTrackRef.current = stream.getVideoTracks()[0]
         setLocalStream(stream)
         setIsConnecting(false)
 
-        /* ================= ROOM SYNC ================= */
-handlers.roomUpdate = (data: any) => {
-  const participants = data.participants || []
-
-  const activeIds = participants.map(
-    (p: any) => p.socketId
-  )
-
-  // Close removed peer connections
-  peerMap.current.forEach((pc, peerId) => {
-    if (!activeIds.includes(peerId)) {
-      pc.close()
-      peerMap.current.delete(peerId)
-      pendingIceCandidates.current.delete(peerId)
-    }
-  })
-
-  setRemotePeers((prev) =>
-    prev.filter((peer) =>
-      activeIds.includes(peer.peerId)
-    )
-  )
-
-participants.forEach(async (p: any) => {
-  if (p.socketId === socket.id) return
-
-  const exists = peerMap.current.has(
-    p.socketId
-  )
-
-  setRemotePeers((prev) => {
-    if (
-      prev.some(
-        (peer) => peer.peerId === p.socketId
-      )
-    ) {
-      return prev
-    }
-
-    return [
-      ...prev,
-      {
-        peerId: p.socketId,
-        name: p.name,
-        stream: null,
-      },
-    ]
-  })
-
-})
-}
-
-        /* ================= USER JOINED ================= */
-        handlers.userJoined = async (data: any) => {
-          const { newUser } = data
-          
-
-          if (!newUser || newUser.socketId === socket.id) return
-
-          setRemotePeers((prev) => {
-            if (prev.some((p) => p.peerId === newUser.socketId)) return prev
-
-            return [
-              ...prev,
-              {
-                peerId: newUser.socketId,
-                name: newUser.name,
-                stream: null,
-              },
-            ]
-          })
-
-console.log(
-  "USER JOINED:",
-  newUser.name,
-  newUser.socketId
-)
-
-const pc = createPeer(newUser.socketId)
-
-
-try {
-  makingOffer.current = true
-
-  const offer = await pc.createOffer()
-
-  await pc.setLocalDescription(offer)
-
-  socket.emit("webrtc-offer", {
-    targetSocketId: newUser.socketId,
-    offer,
-  })
-} finally {
-  makingOffer.current = false
-}
-        }
-
-        /* ================= OFFER ================= */
-        handlers.offer = async ({ senderSocketId, offer }: any) => {
-          console.log(
-            "OFFER RECEIVED:",
-            senderSocketId
-          )
-          const pc = createPeer(senderSocketId)
-
-          await pc.setRemoteDescription(new RTCSessionDescription(offer))
-          const queued =
-              pendingIceCandidates.current.get(senderSocketId) || []
-
-              for (const candidate of queued) {
-                await pc.addIceCandidate(new RTCIceCandidate(candidate))
-              }
-
-              pendingIceCandidates.current.delete(senderSocketId)
-
-          const answer = await pc.createAnswer()
-          await pc.setLocalDescription(answer)
-
-          socket.emit("webrtc-answer", {
-            targetSocketId: senderSocketId,
-            answer,
-          })
-        }
-
-        /* ================= ANSWER ================= */
-        handlers.answer = async ({ senderSocketId, answer }: any) => {
-
-          console.log(
-  "ANSWER RECEIVED:",
-  senderSocketId
-)
-          const pc = peerMap.current.get(senderSocketId)
-
-          if (pc) {
-            await pc.setRemoteDescription(
-              new RTCSessionDescription(answer)
-            )
-            const queued =
-              pendingIceCandidates.current.get(senderSocketId) || []
-
-            for (const candidate of queued) {
-              await pc.addIceCandidate(new RTCIceCandidate(candidate))
+        peerMap.current.forEach((pc) => {
+          stream.getTracks().forEach((track) => {
+            const alreadyAdded = pc.getSenders().some((s) => s.track?.id === track.id)
+            if (!alreadyAdded) {
+              pc.addTrack(track, stream)
             }
+          })
+        })
 
-            pendingIceCandidates.current.delete(senderSocketId)
-          }
-        }
+        /* ================= BIND SOCKET LISTENERS ================= */
+        socket.on("room-update", handleRoomUpdate)
+        socket.on("existing-users", handleExistingUsers)
+        socket.on("user-joined", handleUserJoined)
+        socket.on("webrtc-offer", handleOffer)
+        socket.on("webrtc-answer", handleAnswer)
+        socket.on("webrtc-ice-candidate", handleIce)
+        socket.on("user-left", handleUserLeft)
+        socket.on("force-mute", handleForceMute)
 
-        /* ================= ICE ================= */
-        handlers.ice = async ({ senderSocketId, candidate }: any) => {
-          const pc = peerMap.current.get(senderSocketId)
+        socket.emit("media-state", {
+          micOn: lastMediaState.current.micOn,
+          cameraOn: lastMediaState.current.cameraOn,
+        })
 
-          if (
-            pc &&
-            pc.remoteDescription &&
-            pc.remoteDescription.type
-          ) {
-            await pc.addIceCandidate(
-              new RTCIceCandidate(candidate)
-            )
-          } else {
-            const queue =
-              pendingIceCandidates.current.get(senderSocketId) || []
-
-            queue.push(candidate)
-
-            pendingIceCandidates.current.set(
-              senderSocketId,
-              queue
-            )
-          }
-        }
-
-        /* ================= USER LEFT ================= */
-        handlers.userLeft = ({ socketId }: any) => {
-          peerMap.current.get(socketId)?.close()
-          peerMap.current.delete(socketId)
-          pendingIceCandidates.current.delete(socketId)
-
-          setRemotePeers((prev) =>
-            prev.filter((p) => p.peerId !== socketId)
-          )
-        }
-
-        /* ================= REGISTER EVENTS ================= */
-        socket.on("room-update", handlers.roomUpdate)
-        socket.on("user-joined", handlers.userJoined)
-        socket.on("webrtc-offer", handlers.offer)
-        socket.on("webrtc-answer", handlers.answer)
-        socket.on("webrtc-ice-candidate", handlers.ice)
-        socket.on("user-left", handlers.userLeft)
-            handlers.forceMute = () => {
-            const audioTrack =
-              localStreamRef.current?.getAudioTracks()[0]
-
-            if (audioTrack) {
-              audioTrack.enabled = false
-              setMicOn(false)
-
-              lastMediaState.current.micOn = false
-
-              socket.emit("media-state", {
-                micOn: false,
-                cameraOn: lastMediaState.current.cameraOn,
-              })
-
-              alert("Host muted your microphone.")
-            }
-          }
-
-        socket.on("force-mute", handlers.forceMute)
       } catch (err: any) {
-  console.error(err)
-
-  if (
-    err.name === "NotAllowedError"
-  ) {
-    setError(
-      "Camera/Microphone permission denied"
-    )
-  } else if (
-    err.name === "NotFoundError"
-  ) {
-    setError(
-      "No camera or microphone found"
-    )
-  } else {
-    setError(
-      "Unable to access media devices"
-    )
-  }
-
-  setIsConnecting(false)
-}
+        console.error(err)
+        setError("Unable to access media devices")
+        setIsConnecting(false)
+      }
     }
 
     init()
 
     return () => {
       mounted = false
-
-      socket.off("room-update", handlers.roomUpdate)
-      socket.off("user-joined", handlers.userJoined)
-      socket.off("webrtc-offer", handlers.offer)
-      socket.off("webrtc-answer", handlers.answer)
-      socket.off("webrtc-ice-candidate", handlers.ice)
-      socket.off("user-left", handlers.userLeft)
-      socket.off("force-mute", handlers.forceMute)
-
-        
+      socket.off("room-update", handleRoomUpdate)
+      socket.off("existing-users", handleExistingUsers)
+      socket.off("user-joined", handleUserJoined)
+      socket.off("webrtc-offer", handleOffer)
+      socket.off("webrtc-answer", handleAnswer)
+      socket.off("webrtc-ice-candidate", handleIce)
+      socket.off("user-left", handleUserLeft)
+      socket.off("force-mute", handleForceMute)
 
       localStreamRef.current?.getTracks().forEach((t) => t.stop())
-
       peerMap.current.forEach((pc) => pc.close())
       peerMap.current.clear()
-
-      socket.emit("leaveMeeting", {
-        meetingId,
-      })
+      remoteStreams.current.clear()
+      pendingIceCandidates.current.clear()
+      makingOffersSet.current.clear()
+      ignoreOfferMap.current.clear()
     }
-  }, [meetingId, user, socket, createPeer])
+  }, [meetingId, user, socket, createPeer , makeOffer])
 
-const replaceVideoTrack = useCallback(
-  async (newTrack: MediaStreamTrack) => {
-
+  /* ================= MEDIA CONTROL DRIVERS ================= */
+  const replaceVideoTrack = useCallback(async (newTrack: MediaStreamTrack) => {
     const promises: Promise<void>[] = []
-
     peerMap.current.forEach((pc) => {
-
-      const sender = pc
-        .getSenders()
-        .find(
-          (s) =>
-            s.track?.kind === "video"
-        )
-
+      const sender = pc.getSenders().find((s) => s.track?.kind === "video")
       if (sender) {
-        promises.push(
-          sender.replaceTrack(newTrack)
-        )
+        promises.push(sender.replaceTrack(newTrack).catch(console.error))
       }
     })
-
     await Promise.all(promises)
-  },
-  []
-)
+  }, [])
 
-const stopScreenShare = useCallback(async () => {
+  const stopScreenShare = useCallback(async () => {
+    const cameraTrack = cameraTrackRef.current
+    if (!cameraTrack) return
 
-const cameraTrack =
-  cameraTrackRef.current
+    await replaceVideoTrack(cameraTrack)
+    const audioTrack = localStreamRef.current?.getAudioTracks()[0]
+    const restoredStream = new MediaStream([cameraTrack, ...(audioTrack ? [audioTrack] : [])])
 
-  if (!cameraTrack) return
+    localStreamRef.current = restoredStream
+    setLocalStream(restoredStream)
 
-await replaceVideoTrack(cameraTrack)
+    screenTrackRef.current?.stop()
+    screenTrackRef.current = null
+    setIsScreenSharing(false)
+  }, [replaceVideoTrack])
 
-peerMap.current.forEach(
-  async (pc, peerId) => {
-
-    const offer =
-      await pc.createOffer()
-
-    await pc.setLocalDescription(
-      offer
-    )
-
-    socket?.emit(
-      "webrtc-offer",
-      {
-        targetSocketId: peerId,
-        offer,
-      }
-    )
-  }
-)
-
-const audioTrack =
-  localStreamRef.current
-    ?.getAudioTracks()[0]
-
-const restoredStream =
-  new MediaStream([
-    cameraTrack,
-    ...(audioTrack ? [audioTrack] : []),
-  ])
-
-localStreamRef.current =
-  restoredStream
-
-setLocalStream(restoredStream)
-
-screenTrackRef.current?.stop()
-screenTrackRef.current = null
-
-setIsScreenSharing(false)
-
-}, [replaceVideoTrack, localStream])
-
-
-const startScreenShare = useCallback(
-  async () => {
-
+  const startScreenShare = useCallback(async () => {
     try {
-
-      const screenStream =
-        await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true,
-        })
-
-      const screenTrack =
-        screenStream.getVideoTracks()[0]
-
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+      const screenTrack = screenStream.getVideoTracks()[0]
       if (!screenTrack) return
 
-screenTrackRef.current = screenTrack
+      screenTrackRef.current = screenTrack
+      const audioTrack = localStreamRef.current?.getAudioTracks()[0]
+      const newStream = new MediaStream([screenTrack, ...(audioTrack ? [audioTrack] : [])])
 
-const audioTrack =
-  localStreamRef.current
-    ?.getAudioTracks()[0]
+      localStreamRef.current = newStream
+      setLocalStream(newStream)
 
-const newStream = new MediaStream([
-  screenTrack,
-  ...(audioTrack ? [audioTrack] : []),
-])
-
-localStreamRef.current = newStream
-setLocalStream(newStream)
-
-await replaceVideoTrack(screenTrack)
-
-peerMap.current.forEach(
-  async (pc, peerId) => {
-
-    const offer =
-      await pc.createOffer()
-
-    await pc.setLocalDescription(
-      offer
-    )
-
-    socket?.emit(
-      "webrtc-offer",
-      {
-        targetSocketId: peerId,
-        offer,
-      }
-    )
-  }
-)
-
-setIsScreenSharing(true)
+      await replaceVideoTrack(screenTrack)
+      setIsScreenSharing(true)
 
       screenTrack.onended = () => {
         stopScreenShare()
       }
-
     } catch (err) {
       console.error(err)
     }
-  },
-  [replaceVideoTrack,
-    stopScreenShare,
-  ]
-)
+  }, [replaceVideoTrack, stopScreenShare])
 
-
-
-const toggleScreenShare =
-  useCallback(() => {
-
+  const toggleScreenShare = useCallback(() => {
     if (isScreenSharing) {
       stopScreenShare()
     } else {
       startScreenShare()
     }
+  }, [isScreenSharing, startScreenShare, stopScreenShare])
 
-  }, [
-    isScreenSharing,
-    startScreenShare,
-    stopScreenShare,
-  ])
-  /* ================= CONTROLS ================= */
   const toggleMic = useCallback(() => {
-  const track =
-    localStreamRef.current?.getAudioTracks()[0]
+    const track = localStreamRef.current?.getAudioTracks()[0]
+    if (!track) return
 
-  if (!track) return
+    track.enabled = !track.enabled
+    setMicOn(track.enabled)
+    lastMediaState.current.micOn = track.enabled
 
-  track.enabled = !track.enabled
+    socket?.emit("media-state", {
+      micOn: track.enabled,
+      cameraOn: lastMediaState.current.cameraOn,
+    })
+  }, [socket])
 
-  setMicOn(track.enabled)
+  const toggleCamera = useCallback(async () => {
+    const track = localStreamRef.current?.getVideoTracks()[0]
+    if (!track) return
 
-  lastMediaState.current.micOn = track.enabled
+    track.enabled = !track.enabled
+    setCameraOn(track.enabled)
+    lastMediaState.current.cameraOn = track.enabled
 
-  socket?.emit("media-state", {
-    micOn: track.enabled,
-    cameraOn: lastMediaState.current.cameraOn,
-  })
-}, [socket])
-
- const toggleCamera = useCallback(() => {
-  const track =
-    localStreamRef.current?.getVideoTracks()[0]
-
-  if (!track) return
-
-  track.enabled = !track.enabled
-
-  setCameraOn(track.enabled)
-
-  lastMediaState.current.cameraOn = track.enabled
-
-  socket?.emit("media-state", {
-    micOn: lastMediaState.current.micOn,
-    cameraOn: track.enabled,
-  })
-}, [socket])
+    socket?.emit("media-state", {
+      micOn: lastMediaState.current.micOn,
+      cameraOn: track.enabled,
+    })
+  }, [socket])
 
   const leaveCall = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((t) => t.stop())
-
     peerMap.current.forEach((pc) => pc.close())
     peerMap.current.clear()
     pendingIceCandidates.current.clear()
+    remoteStreams.current.clear()
+    makingOffersSet.current.clear()
+    ignoreOfferMap.current.clear()
 
-    socket?.emit("leaveMeeting", {
-  meetingId,
-})
-
+    socket?.emit("leaveMeeting", { meetingId })
     setLocalStream(null)
     setRemotePeers([])
   }, [meetingId, socket])
 
-return {
-  localStream,
-  remotePeers,
-
-  micOn,
-  cameraOn,
-
-  isScreenSharing,
-  toggleScreenShare,
-
-  toggleMic,
-  toggleCamera,
-
-  leaveCall,
-  isConnecting,
-  error,
-}
+  return {
+    localStream,
+    remotePeers,
+    micOn,
+    cameraOn,
+    isScreenSharing,
+    toggleScreenShare,
+    toggleMic,
+    toggleCamera,
+    leaveCall,
+    isConnecting,
+    error,
+  }
 }

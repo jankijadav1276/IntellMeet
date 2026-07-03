@@ -55,6 +55,18 @@ const {addMeeting}=useMeetingStore()
     queryFn: meetingService.getMyMeetings,
   })
 
+  const scheduledCount = meetings.filter(
+  (meeting: Meeting) => meeting.status === "scheduled"
+).length
+
+const activeCount = meetings.filter(
+  (meeting: Meeting) => meeting.status === "active"
+).length
+
+const completedCount = meetings.filter(
+  (meeting: Meeting) => meeting.status === "completed"
+).length
+
   /* ───────── Create Meeting ───────── */
   const createMutation = useMutation({
     mutationFn: meetingService.createMeeting,
@@ -107,12 +119,48 @@ e.preventDefault()
     <Layout title="Dashboard" subtitle={new Date().toLocaleDateString()}>
 
       {/* STATS */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-          <p className="text-gray-400 text-sm">Meetings</p>
-          <p className="text-white text-2xl">{meetings.length}</p>
-        </div>
-      </div>
+{/* STATS */}
+<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+
+  <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+    <p className="text-gray-400 text-sm">
+      Total Meetings
+    </p>
+    <p className="text-3xl font-bold text-white">
+      {meetings.length}
+    </p>
+  </div>
+
+  {/* Scheduled */}
+  <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-5">
+    <p className="text-purple-300 text-sm">
+      Scheduled
+    </p>
+
+    <p className="text-3xl font-bold text-purple-400 mt-2">
+      {scheduledCount}
+    </p>
+  </div>
+
+  <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-5">
+    <p className="text-green-300 text-sm">
+      Active
+    </p>
+    <p className="text-3xl font-bold text-green-400">
+      {activeCount}
+    </p>
+  </div>
+
+  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5">
+    <p className="text-blue-300 text-sm">
+      Completed
+    </p>
+    <p className="text-3xl font-bold text-blue-400">
+      {completedCount}
+    </p>
+  </div>
+
+</div>
 
       {/* QUICK ACTIONS */}
       <div className="grid grid-cols-3 gap-4 mb-8">
@@ -178,9 +226,21 @@ e.preventDefault()
                 {meeting.participants?.length || 0}
               </span>
 
-              <span className="text-xs px-2 py-1 bg-gray-800 rounded">
-                {meeting.status}
-              </span>
+<span
+  className={`text-xs px-3 py-1 rounded-full font-medium capitalize ${
+    meeting.status === "scheduled"
+      ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+      : meeting.status === "active"
+      ? "bg-green-500/15 text-green-300 border border-green-500/30"
+      : meeting.status === "completed"
+      ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
+      : meeting.status === "cancelled"
+      ? "bg-red-500/15 text-red-300 border border-red-500/30"
+      : "bg-gray-700 text-gray-300"
+  }`}
+>
+  {meeting.status}
+</span>
 
               <button
                 onClick={() => navigate(`/meetings/${meeting._id}`)}

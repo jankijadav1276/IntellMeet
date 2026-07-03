@@ -13,6 +13,14 @@ export const checkMeetingAccess = async (
 
     const meeting = await Meeting.findById(meetingId)
 
+          if (!user) {
+        res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        })
+        return
+      }
+
     if (!meeting) {
       res.status(404).json({
         success: false,
@@ -24,9 +32,8 @@ export const checkMeetingAccess = async (
     const isHost = meeting.host.toString() === user._id.toString()
 
     const isParticipant = meeting.participants.some(
-      (p: any) => p.toString() === user._id.toString()
+      (p: any) => p.user?.toString() === user._id.toString()
     )
-
     if (!isHost && !isParticipant) {
       res.status(403).json({
         success: false,

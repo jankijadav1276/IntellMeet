@@ -26,11 +26,11 @@ export interface ChatMessage {
 // ACTION ITEMS (AI SUMMARY)
 // ===============================
 export interface ActionItem {
-  _id: string
-  text: string
+  _id?: string
+  task: string
   assignee?: string
-  dueDate?: string
-  done: boolean
+  status?: string
+  done?: boolean
 }
 
 // ===============================

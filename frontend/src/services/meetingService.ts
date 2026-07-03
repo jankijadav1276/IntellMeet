@@ -62,6 +62,12 @@ const meetingService = {
     const res = await api.get(`/meetings/${id}/summary`);
     return res.data;
   },
+
+  // AI Processing
+processMeetingAI: async (id: string) => {
+  const res = await api.post(`/ai/${id}/process`);
+  return res.data;
+},
 };
 
 export default meetingService;

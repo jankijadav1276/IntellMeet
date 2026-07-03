@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io"
 import http from "http"
 import Meeting from "../models/Meeting"
+import { processMeetingAI } from "../services/ai/meetingAI.service"
 
 let io: Server
 
@@ -45,7 +46,13 @@ export const initSocket = (server: http.Server) => {
         userId: string
         name: string
       }) => {
-        const { meetingId, userId, name } = data
+        const meetingId = data.meetingId.trim()
+        console.log(
+        "JOIN MEETING ID:",
+        JSON.stringify(meetingId)
+      )
+      const userId = data.userId
+      const name = data.name
 
         if (reconnectTimers[userId]) {
         clearTimeout(reconnectTimers[userId])
@@ -109,9 +116,18 @@ export const initSocket = (server: http.Server) => {
       }
 
         rooms[meetingId].push(newUser)
-      socket.to(meetingId).emit("user-joined", {
-        newUser,
-      })
+
+        // Send existing users to the newly joined participant
+const existingUsers = rooms[meetingId]
+  .filter((p) => p.socketId !== socket.id)
+  .map((p) => ({
+    socketId: p.socketId,
+    userId: p.userId,
+    name: p.name,
+  }))
+
+socket.emit("existing-users", existingUsers)
+
       const existingParticipant = await Meeting.findOne({
         _id: meetingId,
         "participants.user": userId,
@@ -160,6 +176,9 @@ export const initSocket = (server: http.Server) => {
           participants: rooms[meetingId],
         })
        
+      socket.to(meetingId).emit("user-joined", {
+        newUser,
+      })
         io.to(meetingId).emit("participant-db-updated")
 
         /* Send previous chat history */
@@ -238,6 +257,50 @@ socket.on("stop-typing", (data) => {
   })
 })
 
+/* ================= LIVE TRANSCRIPT ================= */
+
+socket.on(
+  "live-transcript",
+  async (data: {
+    meetingId: string
+    speaker: string
+    text: string
+  }) => {
+    const roomId = socket.data.meetingId
+
+    if (!roomId) return
+
+    if (!data.text?.trim()) return
+
+    const transcriptEntry = {
+      speaker: data.speaker,
+      text: data.text.trim(),
+      timestamp: new Date(),
+    }
+
+    try {
+      await Meeting.findByIdAndUpdate(
+        roomId,
+        {
+          $push: {
+            transcript: transcriptEntry,
+          },
+        }
+      )
+    } catch (error) {
+      console.error(
+        "Transcript save failed:",
+        error
+      )
+    }
+
+    io.to(roomId).emit(
+      "live-transcript",
+      transcriptEntry
+    )
+  }
+)
+
     /* ================= MEDIA STATE ================= */
     socket.on("media-state", ({ micOn, cameraOn }) => {
       const meetingId = socket.data.meetingId
@@ -273,6 +336,12 @@ const isValidParticipant = (meetingId: string, socketId: string) => {
 
 /* ================= WEBRTC OFFER ================= */
 socket.on("webrtc-offer", ({ targetSocketId, offer }) => {
+  console.log(
+    "📤 OFFER",
+    socket.id,
+    "->",
+    targetSocketId
+  )
   const meetingId = socket.data.meetingId
   if (!meetingId) return
 
@@ -290,6 +359,12 @@ socket.on("webrtc-answer", ({ targetSocketId, answer }) => {
   if (!meetingId) return
 
   if (!isValidParticipant(meetingId, targetSocketId)) return
+  console.log(
+  "📤 ANSWER",
+  socket.id,
+  "->",
+  targetSocketId
+)
 
   io.to(targetSocketId).emit("webrtc-answer", {
     senderSocketId: socket.id,
@@ -304,6 +379,12 @@ socket.on("webrtc-ice-candidate", ({ targetSocketId, candidate }) => {
 
   if (!isValidParticipant(meetingId, targetSocketId)) return
 
+  console.log(
+  "🧊 ICE",
+  socket.id,
+  "->",
+  targetSocketId
+)
   io.to(targetSocketId).emit("webrtc-ice-candidate", {
     senderSocketId: socket.id,
     candidate,
@@ -476,6 +557,7 @@ socket.on(
     /* ================= HOST: END MEETING ================= */
 socket.on("end-meeting", async () => {
   const meetingId = socket.data.meetingId
+
   if (!meetingId) return
 
   const host = rooms[meetingId]?.find(
@@ -484,19 +566,36 @@ socket.on("end-meeting", async () => {
 
   if (!host?.isHost) return
 
- await Meeting.findByIdAndUpdate(
-  meetingId,
-  {
-    status: "completed",
-    endTime: new Date(),
-  }
-)
+  await Meeting.findByIdAndUpdate(
+    meetingId,
+    {
+      status: "completed",
+      endTime: new Date(),
+    }
+  )
 
-  io.to(meetingId).emit("meeting-ended")
+  try {
+    console.log(
+      "Generating Meeting AI..."
+    )
 
-  if (rooms[meetingId]) {
-    delete rooms[meetingId]
+    await processMeetingAI(meetingId)
+
+    console.log(
+      "Meeting AI Completed"
+    )
+  } catch (error) {
+    console.error(
+      "Meeting AI Failed:",
+      error
+    )
   }
+
+  io.to(meetingId).emit(
+    "meeting-ended"
+  )
+
+  delete rooms[meetingId]
 })
     /* ================= DISCONNECT ================= */
 socket.on("disconnect", () => {

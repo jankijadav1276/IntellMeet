@@ -12,6 +12,9 @@ import MeetingLobbyPage from "../pages/meetings/MeetingLobbyPage"
 import MeetingRoomPage from "../pages/meetings/MeetingRoomPage"
 import MeetingHistoryPage from "../pages/meetings/MeetingHistoryPage"
 import MeetingSummaryPage from "../pages/meetings/MeetingSummaryPage"
+import MeetingProcessingPage from "../pages/meetings/MeetingProcessingPage"
+import MeetingChatHistoryPage from "../pages/meetings/MeetingChatHistoryPage"
+import MeetingTranscriptPage from "../pages/meetings/MeetingTranscriptPage"
 
 import TeamPage from "../pages/team/TeamPage"
 import AnalyticsPage from "../pages/analytics/AnalyticsPage"
@@ -61,8 +64,36 @@ export default function AppRoutes() {
 
       <Route path="/meetings/:id/lobby" element={<PrivateRoute><MeetingLobbyPage /></PrivateRoute>} />
       <Route path="/meetings/:id" element={<PrivateRoute><MeetingRoomPage /></PrivateRoute>} />
-      <Route path="/meetings/:id/summary" element={<PrivateRoute><MeetingSummaryPage /></PrivateRoute>} />
 
+<Route
+  path="/meetings/:id/processing"
+  element={
+    <PrivateRoute>
+      <MeetingProcessingPage />
+    </PrivateRoute>
+  }
+/>
+
+<Route
+  path="/meetings/:id/summary"
+  element={
+    <PrivateRoute>
+      <MeetingSummaryPage />
+    </PrivateRoute>
+  }
+/>
+<Route
+  path="/meetings/:id/chat"
+  element={
+    <PrivateRoute>
+      <MeetingChatHistoryPage />
+    </PrivateRoute>
+  }
+/>
+<Route
+  path="/meetings/:id/transcript"
+  element={<MeetingTranscriptPage />}
+/>
       {/* TEAM & ANALYTICS */}
       <Route path="/team" element={<PrivateRoute><TeamPage /></PrivateRoute>} />
       <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />

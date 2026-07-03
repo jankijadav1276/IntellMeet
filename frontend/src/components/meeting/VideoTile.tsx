@@ -23,11 +23,64 @@ export default function VideoTile({
   const videoRef = useRef<HTMLVideoElement>(null)
 
   // Whenever the stream changes, attach it to the <video> element
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream
+useEffect(() => {
+
+    const video = videoRef.current
+
+    if (!video) return
+
+    if (video.srcObject !== stream) {
+
+        video.srcObject = stream
+
     }
-  }, [stream])
+
+    if (stream) {
+
+        video.onloadedmetadata = () => {
+
+            video.play().catch(console.error)
+
+        }
+
+    } else {
+
+        video.srcObject = null
+
+    }
+
+}, [stream])
+
+useEffect(() => {
+
+    if(stream){
+
+        console.log(
+            "[VIDEO STREAM]",
+            name,
+            stream.id,
+            stream.active
+        )
+
+    }
+
+},[stream,name]);
+
+useEffect(() => {
+
+    const video = videoRef.current
+
+    if (!video) return
+
+    return () => {
+
+        video.pause()
+
+        video.srcObject = null
+
+    }
+
+}, [])
 
   return (
           <div
@@ -38,7 +91,7 @@ export default function VideoTile({
         }`}
 >
       {/* Real video stream — shown when camera is on and stream exists */}
-      {stream ? (
+      {stream && stream.active ? (
         <video
           ref={videoRef}
           autoPlay

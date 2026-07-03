@@ -9,6 +9,7 @@ import {
   updateMeeting,
   deleteMeeting,
   joinMeetingByCode,
+  updateTranscript,
 } from "../controllers/meetingController"
 
 const router = express.Router()
@@ -36,8 +37,17 @@ router.get("/:id", protect, checkMeetingAccess, getMeetingById)
 // ===============================
 // UPDATE MEETING
 // ===============================
+
 router.put("/:id", protect, updateMeeting)
 
+// ===============================
+// SAVE TRANSCRIPT
+// ===============================
+router.put(
+  "/:id/transcript",
+  protect,
+  updateTranscript
+)
 // ===============================
 // DELETE MEETING
 // ===============================

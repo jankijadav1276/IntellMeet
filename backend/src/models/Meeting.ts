@@ -33,6 +33,8 @@ export interface IMeeting extends Document {
 
   meetingCode: string
 
+  meetingLink: string
+
   status:
     | "scheduled"
     | "active"
@@ -48,6 +50,29 @@ export interface IMeeting extends Document {
   totalParticipantsJoined: number
 
   chats: IChat[]
+
+ transcript?: {
+  speaker: string
+  text: string
+  timestamp: Date
+}[]
+
+summary?: string
+
+actionItems?: {
+  task: string
+  assignee?: string
+  status?: "pending" | "completed"
+}[]
+
+insights?: string
+
+keyDecisions?: string[]
+
+aiGenerated?: boolean
+
+aiGeneratedAt?: Date
+
 
   createdAt: Date
   updatedAt: Date
@@ -143,6 +168,11 @@ const meetingSchema = new Schema<IMeeting>(
       index: true,
     },
 
+    meetingLink: {
+  type: String,
+  default: "",
+},
+
     status: {
       type: String,
       enum: [
@@ -178,11 +208,79 @@ const meetingSchema = new Schema<IMeeting>(
     },
 
     chats: [chatSchema],
+transcript: [
+  {
+    speaker: {
+      type: String,
+      trim: true,
+    },
+
+    text: {
+      type: String,
+      trim: true,
+    },
+
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+],
+
+summary: {
+  type: String,
+  default: "",
+},
+
+insights: {
+  type: String,
+  default: "",
+},
+
+actionItems: [
+  {
+    task: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    assignee: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    status: {
+      type: String,
+      enum: ["pending", "completed"],
+      default: "pending",
+    },
+  },
+],
+
+keyDecisions: [
+  {
+    type: String,
+    trim: true,
+  },
+],
+
+aiGenerated: {
+  type: Boolean,
+  default: false,
+},
+
+aiGeneratedAt: {
+  type: Date,
+},
   },
   {
     timestamps: true,
   }
 )
+
+
 
 const Meeting: Model<IMeeting> =
   mongoose.model<IMeeting>(
