@@ -1,6 +1,12 @@
 import { Bell, Search, Menu } from "lucide-react"
 import { useAuth } from "../../hooks/useAuth"
 import { useState } from "react"
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query"
+import notificationService from "../../services/notificationService"
 
 interface TopbarProps {
   title: string
@@ -14,9 +20,42 @@ export default function Topbar({
   setMobileOpen
 }: TopbarProps) {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
 
   const [notificationOpen, setNotificationOpen] =
     useState(false)
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: notificationService.getNotifications,
+  })
+
+  const markAsReadMutation = useMutation({
+    mutationFn: notificationService.markAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["notifications"],
+      })
+    },
+  })
+
+  const markAllMutation = useMutation({
+    mutationFn: notificationService.markAllAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["notifications"],
+      })
+    },
+  })
+
+  const clearMutation = useMutation({
+    mutationFn: notificationService.clearNotifications,
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["notifications"],
+      })
+    },
+  })
 
   return (
     <header
@@ -123,7 +162,7 @@ export default function Topbar({
               text-white
             "
             >
-              3
+              {notifications.filter((n: any) => !n.isRead).length}
             </span>
           </button>
 
@@ -142,23 +181,71 @@ export default function Topbar({
               shadow-xl
             "
             >
-              <div className="p-3 border-b border-gray-800">
+              <div className="flex items-center justify-between p-3 border-b border-gray-800">
+
                 <p className="font-medium text-white">
                   Notifications
                 </p>
+
+                <div className="flex gap-3">
+
+                  {notifications.some((n: any) => !n.isRead) && (
+                    <button
+                      onClick={() => markAllMutation.mutate()}
+                      className="text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      Mark all
+                    </button>
+                  )}
+
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={() => clearMutation.mutate()}
+                      className="text-xs text-red-400 hover:text-red-300"
+                    >
+                      Clear
+                    </button>
+                  )}
+
+                </div>
+
               </div>
 
-              <div className="p-3 hover:bg-gray-800 cursor-pointer">
-                Meeting starts in 10 minutes
-              </div>
+              {notifications.length === 0 ? (
+                <div className="p-4 text-center text-gray-400">
+                  No notifications
+                </div>
+              ) : (
+                notifications.map((notification: any) => (
+                  <div
+                    key={notification._id}
+                    onClick={() => {
+                      if (!notification.isRead) {
+                        markAsReadMutation.mutate(notification._id)
+                      }
+                    }}
+                    className={`
+    p-3
+    border-b
+    border-gray-800
+    cursor-pointer
+    hover:bg-gray-800
+    ${notification.isRead
+                        ? "opacity-60"
+                        : "bg-blue-500/10"
+                      }
+  `}
+                  >
+                    <p className="text-white text-sm font-medium">
+                      {notification.title}
+                    </p>
 
-              <div className="p-3 hover:bg-gray-800 cursor-pointer">
-                AI Summary generated
-              </div>
-
-              <div className="p-3 hover:bg-gray-800 cursor-pointer">
-                New participant joined
-              </div>
+                    <p className="text-gray-400 text-xs mt-1">
+                      {notification.message}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

@@ -9,7 +9,7 @@ import {
   getRecordingByIdService,
   deleteRecordingService,
   getAllRecordingsService,
-} from "../services/recordingService"
+} from "../services/other/recordingService"
 
 export const startRecording = async (
   req: AuthRequest,

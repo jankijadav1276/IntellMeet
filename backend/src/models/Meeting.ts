@@ -40,6 +40,8 @@ export interface IMeeting extends Document {
 
   host: mongoose.Types.ObjectId
 
+  team?: mongoose.Types.ObjectId
+
   participants: IParticipant[]
 
   waitingParticipants: IWaitingParticipant[]
@@ -51,9 +53,9 @@ export interface IMeeting extends Document {
   meetingLink: string
 
   status:
-    | "scheduled"
-    | "active"
-    | "completed"
+  | "scheduled"
+  | "active"
+  | "completed"
 
   startTime: Date
   endTime?: Date
@@ -66,27 +68,27 @@ export interface IMeeting extends Document {
 
   chats: IChat[]
 
- transcript?: {
-  speaker: string
-  text: string
-  timestamp: Date
-}[]
+  transcript?: {
+    speaker: string
+    text: string
+    timestamp: Date
+  }[]
 
-summary?: string
+  summary?: string
 
-actionItems?: {
-  task: string
-  assignee?: string
-  status?: "pending" | "completed"
-}[]
+  actionItems?: {
+    task: string
+    assignee?: string
+    status?: "pending" | "completed"
+  }[]
 
-insights?: string
+  insights?: string
 
-keyDecisions?: string[]
+  keyDecisions?: string[]
 
-aiGenerated?: boolean
+  aiGenerated?: boolean
 
-aiGeneratedAt?: Date
+  aiGeneratedAt?: Date
 
 
   createdAt: Date
@@ -191,6 +193,11 @@ const meetingSchema = new Schema<IMeeting>(
       default: "",
     },
 
+    team: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+    },
+
     host: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -200,14 +207,14 @@ const meetingSchema = new Schema<IMeeting>(
     participants: [participantSchema],
 
     waitingParticipants: {
-  type: [waitingParticipantSchema],
-  default: [],
-},
+      type: [waitingParticipantSchema],
+      default: [],
+    },
 
-autoAdmit: {
-  type: Boolean,
-  default: false,
-},
+    autoAdmit: {
+      type: Boolean,
+      default: false,
+    },
 
     meetingCode: {
       type: String,
@@ -217,9 +224,9 @@ autoAdmit: {
     },
 
     meetingLink: {
-  type: String,
-  default: "",
-},
+      type: String,
+      default: "",
+    },
 
     status: {
       type: String,
@@ -256,72 +263,72 @@ autoAdmit: {
     },
 
     chats: [chatSchema],
-transcript: [
-  {
-    speaker: {
-      type: String,
-      trim: true,
-    },
+    transcript: [
+      {
+        speaker: {
+          type: String,
+          trim: true,
+        },
 
-    text: {
-      type: String,
-      trim: true,
-    },
+        text: {
+          type: String,
+          trim: true,
+        },
 
-    timestamp: {
-      type: Date,
-      default: Date.now,
-    },
-  },
-],
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
 
-summary: {
-  type: String,
-  default: "",
-},
-
-insights: {
-  type: String,
-  default: "",
-},
-
-actionItems: [
-  {
-    task: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    assignee: {
+    summary: {
       type: String,
       default: "",
-      trim: true,
     },
 
-    status: {
+    insights: {
       type: String,
-      enum: ["pending", "completed"],
-      default: "pending",
+      default: "",
     },
-  },
-],
 
-keyDecisions: [
-  {
-    type: String,
-    trim: true,
-  },
-],
+    actionItems: [
+      {
+        task: {
+          type: String,
+          required: true,
+          trim: true,
+        },
 
-aiGenerated: {
-  type: Boolean,
-  default: false,
-},
+        assignee: {
+          type: String,
+          default: "",
+          trim: true,
+        },
 
-aiGeneratedAt: {
-  type: Date,
-},
+        status: {
+          type: String,
+          enum: ["pending", "completed"],
+          default: "pending",
+        },
+      },
+    ],
+
+    keyDecisions: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+
+    aiGenerated: {
+      type: Boolean,
+      default: false,
+    },
+
+    aiGeneratedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

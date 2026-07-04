@@ -3,7 +3,9 @@ import { v4 as uuidv4 } from "uuid";
 
 import Meeting from "../models/Meeting";
 import { AuthRequest } from "../middleware/authMiddleware";
-import {emitWaitingRoomUpdate,} from "../socket/socket";
+import { emitWaitingRoomUpdate, getIO, } from "../socket/socket";
+import Notification from "../models/Notification";
+import Team from "../models/Team";
 
 // ===============================
 // CREATE MEETING
@@ -62,19 +64,32 @@ const createMeeting = async (
 
     const endTime = new Date(
       start.getTime() +
-        meetingDuration * 60 * 1000
+      meetingDuration * 60 * 1000
     );
 
     const user = req.user as any;
 
-const meetingCode = uuidv4();
+    // Find the creator's team
+    const team = await Team.findOne({
+      "members.user": user._id,
+    });
 
+    if (!team) {
+      res.status(404).json({
+        success: false,
+        message: "You are not part of any team.",
+      });
+      return;
+    }
+
+    const meetingCode = uuidv4();
 
 
     const meeting = await Meeting.create({
       title,
       description,
       host: user._id,
+      team: team._id,
       participants: [
         {
           user: user._id,
@@ -84,22 +99,47 @@ const meetingCode = uuidv4();
         },
       ],
 
-status:
-  start <= new Date()
-    ? "active"
-    : "scheduled",
+      status:
+        start <= new Date()
+          ? "active"
+          : "scheduled",
 
-totalParticipantsJoined: 1,
+      totalParticipantsJoined: 1,
       meetingCode,
       startTime: start,
       duration: meetingDuration,
       endTime,
     });
 
-    meeting.meetingLink =
-  `${process.env.CLIENT_URL}/join/${meetingCode}`;
 
-await meeting.save();
+    meeting.meetingLink =
+      `${process.env.CLIENT_URL}/join/${meetingCode}`;
+
+    await meeting.save();
+
+    const io = getIO();
+
+    for (const member of team.members) {
+
+      // Skip meeting creator
+      if (member.user.toString() === user._id.toString()) {
+        continue;
+      }
+
+      const notification = await Notification.create({
+        user: member.user,
+        title: "New Meeting Created",
+        message: `${user.name} created the meeting "${meeting.title}".`,
+        type: "meeting_created",
+        referenceId: meeting._id,
+        referenceModel: "Meeting",
+      });
+
+      io.to(member.user.toString()).emit(
+        "new-notification",
+        notification
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -129,20 +169,20 @@ const getMyMeetings = async (
     const user = req.user as any;
 
     const meetings = await Meeting.find({
-  $or: [
-    { host: user._id },
-    {
-  participants: {
-    $elemMatch: {
-      user: user._id,
-      isActive: true,
-    },
-  },
-}
-  ],
-})
+      $or: [
+        { host: user._id },
+        {
+          participants: {
+            $elemMatch: {
+              user: user._id,
+              isActive: true,
+            },
+          },
+        }
+      ],
+    })
       .populate("host", "name email")
-     .populate(
+      .populate(
         "participants.user",
         "name email"
       )
@@ -174,10 +214,10 @@ const getMeetings = async (
   try {
     const meetings = await Meeting.find()
       .populate("host", "name email")
-    .populate(
-  "participants.user",
-  "name email"
-)
+      .populate(
+        "participants.user",
+        "name email"
+      )
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -209,9 +249,9 @@ const getMeetingById = async (
     )
       .populate("host", "name email")
       .populate(
-  "participants.user",
-  "name email"
-)
+        "participants.user",
+        "name email"
+      )
 
     if (!meeting) {
       res.status(404).json({
@@ -229,15 +269,15 @@ const getMeetingById = async (
       )._id.toString() ===
       user._id.toString();
 
-  const isParticipant =
-  (
-    meeting.participants as any[]
-  ).some(
-    (participant: any) =>
-      participant.user._id.toString() ===
-      user._id.toString() &&
-      participant.isActive
-  );
+    const isParticipant =
+      (
+        meeting.participants as any[]
+      ).some(
+        (participant: any) =>
+          participant.user._id.toString() ===
+          user._id.toString() &&
+          participant.isActive
+      );
 
     if (!isHost && !isParticipant) {
       res.status(403).json({
@@ -432,132 +472,132 @@ const joinMeetingByCode = async (
     const user = req.user as any
 
     const existingParticipant = meeting.participants.find(
-  (participant: any) =>
-    participant.user.toString() === user._id.toString()
-)
+      (participant: any) =>
+        participant.user.toString() === user._id.toString()
+    )
 
-const existingWaitingParticipant =
-  meeting.waitingParticipants.find(
-    (participant: any) =>
-      participant.user.toString() === user._id.toString()
-  )
+    const existingWaitingParticipant =
+      meeting.waitingParticipants.find(
+        (participant: any) =>
+          participant.user.toString() === user._id.toString()
+      )
 
-// User is already inside the meeting
-if (existingParticipant) {
-  if (!existingParticipant.isActive) {
-    existingParticipant.isActive = true
-    existingParticipant.leftAt = undefined
-    existingParticipant.joinedAt = new Date()
+    // User is already inside the meeting
+    if (existingParticipant) {
+      if (!existingParticipant.isActive) {
+        existingParticipant.isActive = true
+        existingParticipant.leftAt = undefined
+        existingParticipant.joinedAt = new Date()
 
-    existingParticipant.role =
-      existingParticipant.user.toString() ===
-      meeting.host.toString()
-        ? "host"
-        : "participant"
-  }
+        existingParticipant.role =
+          existingParticipant.user.toString() ===
+            meeting.host.toString()
+            ? "host"
+            : "participant"
+      }
 
-  if (meeting.status === "scheduled") {
-    meeting.status = "active"
-  }
+      if (meeting.status === "scheduled") {
+        meeting.status = "active"
+      }
 
-  await meeting.save()
+      await meeting.save()
 
-  const populatedMeeting = await Meeting.findById(meeting._id)
-    .populate("host", "name email")
-    .populate("participants.user", "name email")
+      const populatedMeeting = await Meeting.findById(meeting._id)
+        .populate("host", "name email")
+        .populate("participants.user", "name email")
 
-  res.status(200).json({
-    success: true,
-    status: "joined",
-    message: "Joined meeting successfully",
-    meeting: populatedMeeting,
-  })
+      res.status(200).json({
+        success: true,
+        status: "joined",
+        message: "Joined meeting successfully",
+        meeting: populatedMeeting,
+      })
 
-  return
-}
+      return
+    }
 
-// User is already waiting
-if (existingWaitingParticipant) {
-  res.status(200).json({
-    success: true,
-    status: "waiting",
-    message: "Waiting for host approval.",
-  })
+    // User is already waiting
+    if (existingWaitingParticipant) {
+      res.status(200).json({
+        success: true,
+        status: "waiting",
+        message: "Waiting for host approval.",
+      })
 
-  return
-}
+      return
+    }
 
-// Meeting Full
-if (
-  meeting.participants.filter((p: any) => p.isActive).length >=
-  meeting.maxParticipants
-) {
-  res.status(400).json({
-    success: false,
-    message: "Meeting is full",
-  })
+    // Meeting Full
+    if (
+      meeting.participants.filter((p: any) => p.isActive).length >=
+      meeting.maxParticipants
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Meeting is full",
+      })
 
-  return
-}
+      return
+    }
 
-// Host always joins immediately
-const isHost =
-  meeting.host.toString() === user._id.toString()
+    // Host always joins immediately
+    const isHost =
+      meeting.host.toString() === user._id.toString()
 
-// Auto Admit OR Host
-if (meeting.autoAdmit ) {
-  meeting.participants.push({
-    user: user._id,
-    role: isHost ? "host" : "participant",
-    joinedAt: new Date(),
-    isActive: true,
-  })
+    // Auto Admit OR Host
+    if (meeting.autoAdmit) {
+      meeting.participants.push({
+        user: user._id,
+        role: isHost ? "host" : "participant",
+        joinedAt: new Date(),
+        isActive: true,
+      })
 
-  meeting.totalParticipantsJoined += 1
+      meeting.totalParticipantsJoined += 1
 
-  if (meeting.status === "scheduled") {
-    meeting.status = "active"
-  }
+      if (meeting.status === "scheduled") {
+        meeting.status = "active"
+      }
 
-  await meeting.save()
+      await meeting.save()
 
-  const populatedMeeting = await Meeting.findById(meeting._id)
-    .populate("host", "name email")
-    .populate("participants.user", "name email")
+      const populatedMeeting = await Meeting.findById(meeting._id)
+        .populate("host", "name email")
+        .populate("participants.user", "name email")
 
-  res.status(200).json({
-    success: true,
-    status: "joined",
-    message: "Joined meeting successfully",
-    meeting: populatedMeeting,
-  })
+      res.status(200).json({
+        success: true,
+        status: "joined",
+        message: "Joined meeting successfully",
+        meeting: populatedMeeting,
+      })
 
-  return
-}
+      return
+    }
 
-// Waiting Room
-meeting.waitingParticipants.push({
-  user: user._id,
-  name: user.name,
-  joinedAt: new Date(),
-})
+    // Waiting Room
+    meeting.waitingParticipants.push({
+      user: user._id,
+      name: user.name,
+      joinedAt: new Date(),
+    })
 
-const waitingPosition =
-  meeting.waitingParticipants.length
+    const waitingPosition =
+      meeting.waitingParticipants.length
 
-await meeting.save()
+    await meeting.save()
 
-await emitWaitingRoomUpdate(
-  meeting._id.toString()
-)
+    await emitWaitingRoomUpdate(
+      meeting._id.toString()
+    )
 
-res.status(200).json({
-  success: true,
-  status: "waiting",
-  waitingPosition:
-    meeting.waitingParticipants.length,
-  message: "Waiting for host approval.",
-})
+    res.status(200).json({
+      success: true,
+      status: "waiting",
+      waitingPosition:
+        meeting.waitingParticipants.length,
+      message: "Waiting for host approval.",
+    })
   } catch (error) {
     res.status(500).json({
       success: false,

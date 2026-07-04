@@ -91,6 +91,7 @@ export const initSocket = (server: http.Server) => {
         currentMeetingId = meetingId
 
         socket.join(meetingId)
+        socket.join(userId)
 
         if (!rooms[meetingId]) {
           rooms[meetingId] = []

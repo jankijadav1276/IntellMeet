@@ -15,6 +15,7 @@ import recordingRoutes from "./routes/recordingRoutes"
 import teamRoutes from "./routes/teamRoutes";
 import aiRoutes from "./routes/ai.routes"
 import analyticsRoutes from "./routes/analyticsRoutes"
+import notificationRoutes from "./routes/notificationRoutes"
 // Socket
 import { initSocket } from "./socket/socket"
 
@@ -73,7 +74,7 @@ app.use("/api/recordings",recordingRoutes)
 app.use("/api/team", teamRoutes);
 app.use("/api/ai", aiRoutes)
 app.use("/api/analytics", analyticsRoutes)
-
+app.use("/api/notifications", notificationRoutes)
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({

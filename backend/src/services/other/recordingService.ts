@@ -1,5 +1,5 @@
-import Recording from "../models/Recording"
-import Meeting from "../models/Meeting"
+import Recording from "../../models/Recording"
+import Meeting from "../../models/Meeting"
 
 export const startRecordingService = async (
   meetingId: string,
