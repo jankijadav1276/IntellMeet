@@ -64,25 +64,10 @@ useEffect(() => {
   fetchAnalytics()
 }, [setAnalytics])
 
-const formatDuration = (minutes: number) => {
-  if (minutes < 60) {
-    return `${minutes} min`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (remainingMinutes === 0) {
-    return `${hours} hr`;
-  }
-
-  return `${hours} hr ${remainingMinutes} min`;
-};
-
 const stats = [
   {
     label: "Total Meetings",
-    value: formatDuration(analytics?.totalMeetingMinutes ?? 0),
+    value: analytics?.totalMeetings ?? 0,
     icon: Video,
     color: "text-blue-400",
   },
