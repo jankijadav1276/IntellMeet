@@ -1,5 +1,5 @@
 import {useState} from "react"
-import {Link,useLocation,useNavigate} from "react-router-dom"
+import {Link,useNavigate} from "react-router-dom"
 
 
 import {Eye,EyeOff,Video} from "lucide-react"
@@ -9,11 +9,7 @@ import authService from "../../services/authService"
 
 export default function LoginPage(){
 
-    const location = useLocation()
-
-const from =
-  (location.state as any)?.from?.pathname || "/dashboard"
-
+  
 const navigate=useNavigate()
 
 const login=useAuthStore((state)=>state.login)

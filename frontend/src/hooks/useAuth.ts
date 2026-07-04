@@ -36,7 +36,7 @@ export function useAuth() {
   // Called when user submits signup form
   async function handleSignup(data: SignupRequest) {
     try {
-      const response = await authService.signup(data)
+      const response = await authService.register(data)
       login(response.user, response.token)
       navigate("/dashboard")
     } catch (error) {

@@ -1,5 +1,4 @@
 import {
-HelpCircle,
 MessageSquare,
 Mail,
 Video,

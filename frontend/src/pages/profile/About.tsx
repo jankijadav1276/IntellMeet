@@ -3,8 +3,6 @@ Video,
 Users,
 MessageSquare,
 ShieldCheck,
-Globe,
-Zap
 } from "lucide-react"
 
 import PageWrapper from "../../components/common/PageWrapper"

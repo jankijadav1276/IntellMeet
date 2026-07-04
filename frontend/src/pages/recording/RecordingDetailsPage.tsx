@@ -7,8 +7,6 @@ import {
   Calendar,
   Clock,
   Download,
-  FileText,
-  CheckSquare,
   PlayCircle,
 } from "lucide-react"
 

@@ -210,7 +210,7 @@ Account ID
 </span>
 
 <span>
-{user?.id || "Not available"}
+{user?._id || "Not available"}
 </span>
 
 </div>

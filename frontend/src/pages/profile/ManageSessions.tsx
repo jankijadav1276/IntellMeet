@@ -1,7 +1,6 @@
 import {
 Monitor,
 Smartphone,
-Globe,
 LogOut,
 ShieldCheck
 } from "lucide-react"

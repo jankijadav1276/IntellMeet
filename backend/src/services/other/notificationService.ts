@@ -1,6 +1,6 @@
 import mongoose from "mongoose"
-import Notification from "../models/Notification"
-import { getIO } from "../socket/socket"
+import Notification from "../../models/Notification"
+import { getIO } from "../../socket/socket"
 
 interface CreateNotificationParams {
   user: mongoose.Types.ObjectId

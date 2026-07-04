@@ -4,14 +4,6 @@ import useAuthStore from "../../store/authStore"
 import { useChatStore } from "../../store/chatStore"
 
 
-
-interface ChatMessage {
-  userId: string
-  name: string
-  message: string
-  timestamp: string
-}
-
 interface ChatPanelProps {
   socket: any | null
   meetingId?: string
