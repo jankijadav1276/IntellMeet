@@ -79,7 +79,10 @@ export default function Topbar({
       <div className="flex items-center gap-3">
         <button
           className="md:hidden p-2 rounded-lg hover:bg-gray-800"
-          onClick={() => setMobileOpen?.(true)}
+          aria-label="Open Sidebar"
+          onClick={() => setMobileOpen?.(true)
+            
+          }
         >
           <Menu className="w-5 h-5" />
         </button>

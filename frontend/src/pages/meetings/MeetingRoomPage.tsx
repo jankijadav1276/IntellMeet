@@ -761,6 +761,7 @@ const remoteParticipants = useMemo(() => {
         <div className="pointer-events-none fixed inset-0 overflow-hidden z-50">
           {reactions.map((reaction) => (
            <div
+           
             key={reaction.id}
             className="absolute bottom-8 text-5xl reaction-float"
             style={{

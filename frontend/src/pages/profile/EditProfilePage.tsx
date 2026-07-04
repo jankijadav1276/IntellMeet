@@ -77,6 +77,7 @@ avatar ?
 
 <img
 src={avatar}
+title="Profile Image"
 className="w-24 h-24 rounded-full object-cover border-4 border-blue-500"
 />
 
@@ -146,6 +147,8 @@ value={name}
 
 onChange={(e)=>setName(e.target.value)}
 
+placeholder="Enter your full name"
+
 className="bg-transparent outline-none w-full py-3"
 
 />
@@ -164,8 +167,8 @@ className="bg-transparent outline-none w-full py-3"
 
 <div>
 
-<label className="text-sm text-gray-400">
-Email
+<label htmlFor="email" className="text-sm text-gray-400">
+    Email
 </label>
 
 
@@ -176,13 +179,13 @@ Email
 
 
 <input
-
-value={user?.email || ""}
-
-disabled
-
-className="bg-transparent outline-none w-full py-3"
-
+    id="email"
+    type="email"
+    value={user?.email || ""}
+    disabled
+    aria-label="Email"
+    title="Email"
+    className="bg-transparent outline-none w-full py-3"
 />
 
 

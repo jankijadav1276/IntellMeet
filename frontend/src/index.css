@@ -105,7 +105,9 @@ a{
 
 .reaction-float {
   animation: floatReaction 2.5s ease-out forwards;
+  -webkit-user-select: none;
   user-select: none;
+  
 }
 
 @keyframes floatReaction {
