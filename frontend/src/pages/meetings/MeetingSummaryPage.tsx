@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useParams, useLocation } from "react-router-dom"
+import { useNavigate, useParams,  } from "react-router-dom"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import {
   ArrowLeft,
@@ -20,8 +20,7 @@ export default function MeetingSummaryPage() {
 const { id } = useParams()
 const navigate = useNavigate()
 
-const location = useLocation()
-const aiData = location.state
+
 
 const [activeTab, setActiveTab] = useState<
   "summary" | "actions" | "decisions" | "transcript"

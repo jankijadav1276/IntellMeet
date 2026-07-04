@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { Socket } from "socket.io-client"
 import useAuthStore from "../store/authStore"
-import meetingService from "../services/meetingService"
-import useMediaStore from "../store/mediaStore"
 
 interface RemotePeer {
   peerId: string
@@ -212,7 +210,7 @@ case "closed":
 
     let mounted = true
 
-    const handlers: Record<string, any> = {}
+   
 
 const init = async () => {
   try {

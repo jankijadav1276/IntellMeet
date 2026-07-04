@@ -82,7 +82,7 @@ const formatDuration = (minutes: number) => {
 const stats = [
   {
     label: "Total Meetings",
-    value: analytics?.totalMeetings ?? 0,
+    value: formatDuration(analytics?.totalMeetingMinutes ?? 0),
     icon: Video,
     color: "text-blue-400",
   },
