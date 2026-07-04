@@ -2,8 +2,9 @@ import { useEffect, useState } from "react"
 import { useNavigate, useParams, useLocation } from "react-router-dom"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import {
-ArrowLeft,
-
+  ArrowLeft,
+  Copy,
+  Download,
 } from "lucide-react"
 
 import Layout from "../../components/common/Layout"
@@ -11,6 +12,7 @@ import meetingService from "../../services/meetingService"
 import type { ActionItem } from "../../types"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { exportMeetingPDF } from "../../utils/pdfExport"
 
 
 
@@ -81,42 +83,121 @@ setCopied(true)
 setTimeout(() => setCopied(false), 2000)
 }
 
+function downloadSummary() {
+  const content = `
+Meeting Title:
+${meeting?.title || "Untitled"}
+
+Date:
+${new Date(meeting?.createdAt || Date.now()).toLocaleString()}
+
+Duration:
+${meeting?.duration || 0} minutes
+
+Participants:
+${meeting?.participants?.length || 0}
+
+------------------------------------------------
+
+AI SUMMARY
+
+${meeting?.summary || "No summary available"}
+
+------------------------------------------------
+
+ACTION ITEMS
+
+${
+  actionItems.length
+    ? actionItems
+        .map(
+          (item, index) =>
+`${index + 1}. ${item.task}
+Assigned To: ${item.assignee || "Not Assigned"}
+Status: ${item.done ? "Completed" : "Pending"}`
+        )
+        .join("\n\n")
+    : "No Action Items"
+}
+
+------------------------------------------------
+
+KEY DECISIONS
+
+${
+  meeting?.keyDecisions?.length
+    ? meeting.keyDecisions
+        .map((d: string, i: number) => `${i + 1}. ${d}`)
+        .join("\n")
+    : "No Decisions"
+}
+`
+
+  exportMeetingPDF(
+    meeting?.title || "Meeting Summary",
+    "Summary",
+    content
+  )
+}
+
 return (
   <Layout
     title={meeting?.title ?? "Meeting Summary"}
     subtitle="AI-powered meeting insights and outcomes"
   >
     {/* Top Actions */}
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+  <div className="flex items-center justify-between mb-6">
 
-      <button
-        onClick={() => navigate("/meetings/history")}
-        className="
-          flex items-center gap-2
-          text-gray-400
-          hover:text-white
-          transition
-        "
-      >
-        <ArrowLeft size={18} />
-        Back to History
-      </button>
+  <button
+    onClick={() => navigate("/meetings/history")}
+    className="
+      flex items-center gap-2
+      text-gray-400
+      hover:text-white
+      transition
+    "
+  >
+    <ArrowLeft size={18} />
+    Back to History
+  </button>
 
-      <button
-        onClick={copySummary}
-        className="
-          px-4 py-2
-          bg-blue-600
-          hover:bg-blue-500
-          rounded-lg
-          text-white
-          transition
-        "
-      >
-        {copied ? "Copied ✓" : "Copy Summary"}
-      </button>
+  <div className="flex items-center gap-3">
 
-    </div>
+    <button
+      onClick={copySummary}
+      title="Copy Summary"
+      className="
+        flex items-center justify-center
+        w-11 h-11
+        rounded-xl
+        bg-blue-600
+        hover:bg-blue-500
+        text-white
+        transition
+      "
+    >
+      {copied ? "✓" : <Copy size={20} />}
+    </button>
+
+    <button
+      onClick={downloadSummary}
+      title="Export PDF"
+      className="
+        flex items-center justify-center
+        w-11 h-11
+        rounded-xl
+        bg-red-600
+        hover:bg-red-500
+        text-white
+        transition
+      "
+    >
+      <Download size={20} />
+    </button>
+
+  </div>
+
+</div>
 
     {/* Stats */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

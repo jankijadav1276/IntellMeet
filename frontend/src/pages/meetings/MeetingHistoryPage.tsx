@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Clock, Users, FileText } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -7,6 +8,7 @@ import meetingService from "../../services/meetingService"
 
 export default function MeetingHistoryPage() {
   const navigate = useNavigate()
+  const [search, setSearch] = useState("")
 
   const { data, isLoading } = useQuery({
     queryKey: ["meetings-history"],
@@ -14,6 +16,22 @@ export default function MeetingHistoryPage() {
   })
 
  const meetings = data || []
+
+ const filteredMeetings = meetings.filter((meeting: any) => {
+  const keyword = search.toLowerCase().trim()
+
+  if (!keyword) return true
+
+  return (
+    meeting.title?.toLowerCase().includes(keyword) ||
+    meeting.status?.toLowerCase().includes(keyword) ||
+    meeting.code?.toLowerCase().includes(keyword) ||
+    new Date(meeting.createdAt)
+      .toLocaleDateString()
+      .toLowerCase()
+      .includes(keyword)
+  )
+})
 
  const getStatusStyle = (status: string) => {
   switch (status) {
@@ -82,26 +100,28 @@ return (
 
     {/* Search */}
     <div className="mb-6">
-      <input
-        type="text"
-        placeholder="Search meetings..."
-        className="
-          w-full
-          bg-gray-900
-          border
-          border-gray-800
-          rounded-xl
-          px-4
-          py-3
-          text-white
-          focus:outline-none
-          focus:border-blue-500
-        "
-      />
+<input
+  type="text"
+  placeholder="Search by title, status, code or date..."
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  className="
+    w-full
+    bg-gray-900
+    border
+    border-gray-800
+    rounded-xl
+    px-4
+    py-3
+    text-white
+    focus:outline-none
+    focus:border-blue-500
+  "
+/>
     </div>
 
     {/* Empty State */}
-    {meetings.length === 0 ? (
+   {filteredMeetings.length === 0 ? (
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
 
         <FileText
@@ -121,7 +141,7 @@ return (
     ) : (
       <div className="space-y-4">
 
-        {meetings.map((meeting: any) => (
+       {filteredMeetings.map((meeting: any) => (
           <div
             key={meeting._id}
             className="
