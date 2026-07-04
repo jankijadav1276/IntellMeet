@@ -6,7 +6,7 @@ UserCheck,
 Share2,
 Trash2
 } from "lucide-react"
-
+import BackToDashboard from "../../components/profile/BackToDashboard"
 
 export default function PrivacyPolicy(){
 
@@ -55,7 +55,7 @@ text:"Users can manage their profile information and request account deletion th
 return(
 
 <div className="space-y-6">
-
+<BackToDashboard />
 
 
 {/* Header */}

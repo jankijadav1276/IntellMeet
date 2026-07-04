@@ -1,9 +1,11 @@
+import BackToDashboard from "../../components/settings/BackToDashboard"
+
 export default function WorkspaceSettings(){
 
 return(
 
 <div>
-
+<BackToDashboard />
 
 <h2 className="
 text-3xl

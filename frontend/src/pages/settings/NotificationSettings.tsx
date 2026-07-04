@@ -1,3 +1,5 @@
+import BackToDashboard from "../../components/settings/BackToDashboard"
+
 const notifications=[
 
 {
@@ -29,7 +31,7 @@ export default function NotificationSettings(){
 return(
 
 <div>
-
+<BackToDashboard />
 
 <h1 className="
 text-3xl

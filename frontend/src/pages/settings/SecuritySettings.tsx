@@ -1,3 +1,5 @@
+import BackToDashboard from "../../components/settings/BackToDashboard"
+
 const security=[
 
 "Change Password",
@@ -17,7 +19,7 @@ export default function SecuritySettings(){
 return(
 
 <div>
-
+<BackToDashboard />
 
 <h1 className="
 text-3xl

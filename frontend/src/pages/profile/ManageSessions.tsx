@@ -5,7 +5,7 @@ LogOut,
 ShieldCheck
 } from "lucide-react"
 import {useState} from "react"
-
+import BackToDashboard from "../../components/profile/BackToDashboard"
 
 const demoSessions=[
 {
@@ -60,7 +60,7 @@ await axios.delete(
 return(
 
 <div className="space-y-6">
-
+<BackToDashboard />
 
 {/* Header */}
 

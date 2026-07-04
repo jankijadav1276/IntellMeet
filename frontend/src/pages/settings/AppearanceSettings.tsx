@@ -1,5 +1,5 @@
 import useThemeStore from "../../store/themeStore"
-
+import BackToDashboard from "../../components/settings/BackToDashboard"
 
 export default function AppearanceSettings(){
 
@@ -14,7 +14,7 @@ toggleTheme
 return(
 
 <div>
-
+<BackToDashboard />
 
 <h1 className="
 text-3xl

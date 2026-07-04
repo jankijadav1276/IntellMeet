@@ -7,7 +7,7 @@ Database,
 CheckCircle
 } from "lucide-react"
 import {useState} from "react"
-
+import BackToDashboard from "../../components/profile/BackToDashboard"
 
 export default function PrivacySecurity(){
 
@@ -22,7 +22,7 @@ return(
 
 <div className="space-y-6">
 
-
+<BackToDashboard />
 
 {/* Header */}
 

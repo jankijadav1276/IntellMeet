@@ -6,6 +6,7 @@ User,
 Mail
 } from "lucide-react"
 import useAuthStore from "../../store/authStore"
+import BackToDashboard from "../../components/profile/BackToDashboard"
 
 export default function EditProfilePage(){
 
@@ -48,7 +49,7 @@ setLoading(false)
 return(
 
 <div className="space-y-6">
-
+<BackToDashboard />
 
 {/* Header */}
 

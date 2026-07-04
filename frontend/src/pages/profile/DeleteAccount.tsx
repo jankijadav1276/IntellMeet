@@ -6,7 +6,7 @@ ShieldAlert,
 LogOut
 } from "lucide-react"
 import useAuthStore from "../../store/authStore"
-
+import BackToDashboard from "../../components/profile/BackToDashboard"
 
 export default function DeleteAccount(){
 
@@ -76,7 +76,7 @@ return(
 
 <div className="space-y-6">
 
-
+<BackToDashboard />
 
 
 

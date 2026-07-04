@@ -5,7 +5,7 @@ Eye,
 EyeOff,
 Save
 } from "lucide-react"
-
+import BackToDashboard from "../../components/profile/BackToDashboard"
 export default function ChangePasswordPage(){
 
 const [currentPassword,setCurrentPassword]=useState("")
@@ -135,7 +135,7 @@ show
 return(
 
 <div className="space-y-6">
-
+<BackToDashboard />
 
 {/* Header */}
 

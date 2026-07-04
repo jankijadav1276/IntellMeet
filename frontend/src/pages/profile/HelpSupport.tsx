@@ -7,7 +7,7 @@ Bug,
 ChevronDown
 } from "lucide-react"
 import {useState} from "react"
-
+import BackToDashboard from "../../components/profile/BackToDashboard"
 
 export default function HelpSupport(){
 
@@ -46,7 +46,7 @@ return(
 
 <div className="space-y-6">
 
-
+<BackToDashboard />
 
 {/* Header */}
 

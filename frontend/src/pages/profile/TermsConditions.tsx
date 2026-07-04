@@ -7,7 +7,7 @@ AlertTriangle,
 Ban,
 CreditCard
 } from "lucide-react"
-
+import BackToDashboard from "../../components/profile/BackToDashboard"
 
 export default function TermsConditions(){
 
@@ -70,7 +70,7 @@ return(
 
 <div className="space-y-6">
 
-
+<BackToDashboard />
 
 {/* Header */}
 

@@ -4,7 +4,7 @@ Users,
 Shield,
 CircleDot
 } from "lucide-react"
-
+import BackToDashboard from "../../components/settings/BackToDashboard"
 
 const settings=[
 {
@@ -35,7 +35,7 @@ export default function MeetingSettings(){
 return(
 
 <div>
-
+<BackToDashboard />
 
 <h1 className="
 text-3xl

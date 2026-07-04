@@ -6,7 +6,7 @@ ShieldCheck,
 } from "lucide-react"
 
 import PageWrapper from "../../components/common/PageWrapper"
-
+import BackToDashboard from "../../components/profile/BackToDashboard"
 export default function About() {
 
 const features = [
@@ -36,7 +36,7 @@ return (
 <PageWrapper>
 
 <div className="space-y-10 text-white">
-
+<BackToDashboard />
 <h1 className="text-3xl font-semibold">About IntellMeet</h1>
 
 <p className="text-gray-400">

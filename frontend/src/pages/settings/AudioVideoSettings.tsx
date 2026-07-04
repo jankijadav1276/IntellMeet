@@ -3,7 +3,7 @@ Camera,
 Mic,
 Volume2
 } from "lucide-react"
-
+import BackToDashboard from "../../components/settings/BackToDashboard"
 
 const devices=[
 {
@@ -27,7 +27,7 @@ export default function AudioVideoSettings(){
 return(
 
 <div>
-
+<BackToDashboard />
 
 <h1 className="
 text-3xl
