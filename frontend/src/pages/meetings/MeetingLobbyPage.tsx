@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { Loader2, Video, VideoOff, Mic, MicOff } from "lucide-react"
+import { Loader2, Video, VideoOff, Mic, MicOff, ArrowLeft } from "lucide-react"
 
 import Layout from "../../components/common/Layout"
 import { useSocket } from "../../hooks/useSocket"
 import useAuthStore from "../../store/authStore"
 import useMediaStore from "../../store/mediaStore"
 import meetingService from "../../services/meetingService"
+
 
 export default function MeetingLobbyPage() {
 
@@ -244,7 +245,17 @@ if (!socketRef.current) {
 
   return (
   <Layout title="Meeting Lobby">
+        <div className="relative min-h-screen">
+
+      <button
+        onClick={() => navigate("/dashboard")}
+        className="absolute top-6 left-6 flex items-center gap-2 text-white bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg z-50"
+      >
+        <ArrowLeft size={18} />
+        Back
+      </button>
     <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white px-4">
+      
 
       {/* ================= TITLE ================= */}
       <h1 className="text-2xl font-bold mb-6">
@@ -338,6 +349,7 @@ if (!socketRef.current) {
       )}
 
     </div>
+   </div>
   </Layout>
 )
 }

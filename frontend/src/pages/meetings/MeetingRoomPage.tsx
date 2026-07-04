@@ -13,6 +13,7 @@ import MeetingTimer from "../../components/meeting/MeetingTimer"
 import { useWebRTC } from "../../hooks/useWebRTC"
 import useAuthStore from "../../store/authStore"
 import { useChatStore } from "../../store/chatStore"
+import meetingService from "../../services/meetingService"
 
 
 function formatTime(seconds: number) {
@@ -32,7 +33,7 @@ export default function MeetingRoomPage() {
   }, [id, navigate])
 
   const { user } = useAuthStore()
-
+const [meetingCode, setMeetingCode] = useState("")
   const {
     socket,
     transferHost,
@@ -81,6 +82,7 @@ export default function MeetingRoomPage() {
   const [recordingTime, setRecordingTime] = useState(0)
   const [isRecordingActive, setIsRecordingActive] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+ 
 
   const {
     localStream,
@@ -100,6 +102,21 @@ export default function MeetingRoomPage() {
     error: webrtcError,
   } = useWebRTC(id, socket)
 
+
+useEffect(() => {
+  async function loadMeeting() {
+    if (!id) return
+
+    try {
+      const meeting = await meetingService.getMeetingById(id)
+      setMeetingCode(meeting.meetingCode)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  loadMeeting()
+}, [id])
   /* ================= SOCKET EVENTS ================= */
   useEffect(() => {
     if (!socket) return
@@ -420,6 +437,8 @@ const handleMeetingEnded = () => {
     return Boolean(user?._id && hostUserId === user._id)
   }, [hostUserId, user?._id])
 
+const inviteLink = `${window.location.origin}/join/${meetingCode}`
+
   /* ================= PARTICIPANTS ================= */
   const sidebarParticipants = useMemo(() => {
     return participants.map((p) => ({
@@ -510,6 +529,7 @@ const remoteParticipants = useMemo(() => {
           meetingTitle={`Meeting ${id}`}
           meetingCode={id ?? ""}
           participantCount={sidebarParticipants.length}
+          inviteLink={inviteLink}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">

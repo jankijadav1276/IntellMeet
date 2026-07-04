@@ -5,20 +5,22 @@ interface MeetingHeaderProps {
   meetingTitle: string
   meetingCode: string
   participantCount: number
+  inviteLink: string
 }
 
 export default function MeetingHeader({
   meetingTitle,
   meetingCode,
-  participantCount
-}: MeetingHeaderProps) {
+  participantCount,
+  inviteLink,
+}: MeetingHeaderProps)  {
 
   const [copied, setCopied] = useState(false)
 
-  const meetingLink = `${window.location.origin}/meetings/test123`
+  
 
   const copyMeetingLink = async () => {
-    await navigator.clipboard.writeText(meetingLink)
+    await navigator.clipboard.writeText(inviteLink)
 
     setCopied(true)
 
@@ -55,30 +57,16 @@ export default function MeetingHeader({
           </div>
 
           <button
-            onClick={copyMeetingLink}
-            className="
-              flex items-center gap-2
-              bg-blue-600
-              hover:bg-blue-500
-              px-4
-              py-2
-              rounded-lg
-              text-white
-              transition
-            "
-          >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4" />
-                Copied
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                Copy Link
-              </>
-            )}
-          </button>
+  onClick={copyMeetingLink}
+  title="Copy Invite Link"
+  className="p-2 rounded-full hover:bg-gray-800 transition"
+>
+  {copied ? (
+    <Check className="w-5 h-5 text-green-500" />
+  ) : (
+    <Copy className="w-5 h-5 text-gray-300 hover:text-white" />
+  )}
+</button>
 
         </div>
 
