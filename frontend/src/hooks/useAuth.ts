@@ -66,7 +66,7 @@ export function useAuth() {
     } finally {
       // finally always runs — clears store and redirects
       logout()
-      navigate("/login")
+     navigate("/", { replace: true })
     }
   }
 
