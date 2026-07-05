@@ -22,7 +22,7 @@ export default function PrivateRoute({
       location.pathname
     )
 
-    return <Navigate to="/login" replace />
+return <Navigate to="/" replace />
   }
 
   return <>{children}</>
