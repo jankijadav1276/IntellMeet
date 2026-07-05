@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Plus,
   Users,
@@ -10,18 +10,19 @@ import {
 import { useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import meetingService from "../../services/meetingService"
+import api from "../../services/api"
 import useMeetingStore from "../../store/meetingStore"
 import useAuthStore from "../../store/authStore"
 import Layout from "../../components/common/Layout"
 import type { Meeting } from "../../types"
 
-export default function DashboardPage(){
+export default function DashboardPage() {
 
-const navigate=useNavigate()
-const user=useAuthStore((state)=>state.user)
+  const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
 
-const queryClient=useQueryClient()
-const {addMeeting}=useMeetingStore()
+  const queryClient = useQueryClient()
+  const { addMeeting } = useMeetingStore()
 
   const [showModal, setShowModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
@@ -32,9 +33,12 @@ const {addMeeting}=useMeetingStore()
     date: "",
     time: "",
     duration: 30,
+    isTeamMeeting: "no",
+    team: "",
   })
 
   const [formError, setFormError] = useState("")
+  const [team, setTeam] = useState<any>(null)
 
   /* ───────── Quick Actions ───────── */
   function handleQuickAction(action: string) {
@@ -55,46 +59,66 @@ const {addMeeting}=useMeetingStore()
     queryFn: meetingService.getMyMeetings,
   })
 
+  useEffect(() => {
+    const fetchTeam = async () => {
+      try {
+        const res = await api.get("/team/my-team")
+        setTeam(res.data.team)
+      } catch {
+        setTeam(null)
+      }
+    }
+
+    fetchTeam()
+  }, [])
+
   const scheduledCount = meetings.filter(
-  (meeting: Meeting) => meeting.status === "scheduled"
-).length
+    (meeting: Meeting) => meeting.status === "scheduled"
+  ).length
 
-const activeCount = meetings.filter(
-  (meeting: Meeting) => meeting.status === "active"
-).length
+  const activeCount = meetings.filter(
+    (meeting: Meeting) => meeting.status === "active"
+  ).length
 
-const completedCount = meetings.filter(
-  (meeting: Meeting) => meeting.status === "completed"
-).length
+  const completedCount = meetings.filter(
+    (meeting: Meeting) => meeting.status === "completed"
+  ).length
 
   /* ───────── Create Meeting ───────── */
- const createMutation=useMutation({
-mutationFn:(data:any)=>meetingService.createMeeting(data),
-onSuccess:(created)=>{
-queryClient.invalidateQueries({
-queryKey:["meetings"]
-})
-addMeeting(created)
-closeModal()
-},
-onError:(error:any)=>{
-console.log(error?.response?.data)
-setFormError(
-error?.response?.data?.message ||
-"Failed to create meeting. Please try again."
-)
-}
-})
+  const createMutation = useMutation({
+    mutationFn: (data: any) => meetingService.createMeeting(data),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({
+        queryKey: ["meetings"]
+      })
+      addMeeting(created)
+      closeModal()
+    },
+    onError: (error: any) => {
+      console.log(error?.response?.data)
+      setFormError(
+        error?.response?.data?.message ||
+        "Failed to create meeting. Please try again."
+      )
+    }
+  })
 
   /* ───────── Helpers ───────── */
   function closeModal() {
     setShowModal(false)
-    setNewMeeting({ title: "", date: "", time: "", duration: 30 })
+    setNewMeeting({
+      title: "",
+      date: "",
+      time: "",
+      duration: 30,
+      isTeamMeeting: "no",
+      team: "",
+    })
     setFormError("")
   }
 
-function handleCreateMeeting(e:React.FormEvent){
-e.preventDefault()
+  function handleCreateMeeting(e: React.FormEvent) {
+    e.preventDefault()
 
     if (!newMeeting.title.trim()) {
       setFormError("Title is required")
@@ -110,12 +134,24 @@ e.preventDefault()
       `${newMeeting.date}T${newMeeting.time}:00`
     ).toISOString()
 
+    if (
+      newMeeting.isTeamMeeting === "yes" &&
+      !team
+    ) {
+      setFormError("You are not part of any team.")
+      return
+    }
+
     createMutation.mutate({
-title:newMeeting.title.trim(),
-scheduledDate:newMeeting.date,
-scheduledTime:newMeeting.time,
-startTime
-})
+      title: newMeeting.title.trim(),
+      scheduledDate: newMeeting.date,
+      scheduledTime: newMeeting.time,
+      startTime,
+      team:
+        newMeeting.isTeamMeeting === "yes"
+          ? team?._id
+          : undefined,
+    })
   }
 
   /* ───────── UI ───────── */
@@ -123,48 +159,48 @@ startTime
     <Layout title="Dashboard" subtitle={new Date().toLocaleDateString()}>
 
       {/* STATS */}
-{/* STATS */}
-<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* STATS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
 
-  <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-    <p className="text-gray-400 text-sm">
-      Total Meetings
-    </p>
-    <p className="text-3xl font-bold text-white">
-      {meetings.length}
-    </p>
-  </div>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <p className="text-gray-400 text-sm">
+            Total Meetings
+          </p>
+          <p className="text-3xl font-bold text-white">
+            {meetings.length}
+          </p>
+        </div>
 
-  {/* Scheduled */}
-  <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-5">
-    <p className="text-purple-300 text-sm">
-      Scheduled
-    </p>
+        {/* Scheduled */}
+        <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-5">
+          <p className="text-purple-300 text-sm">
+            Scheduled
+          </p>
 
-    <p className="text-3xl font-bold text-purple-400 mt-2">
-      {scheduledCount}
-    </p>
-  </div>
+          <p className="text-3xl font-bold text-purple-400 mt-2">
+            {scheduledCount}
+          </p>
+        </div>
 
-  <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-5">
-    <p className="text-green-300 text-sm">
-      Active
-    </p>
-    <p className="text-3xl font-bold text-green-400">
-      {activeCount}
-    </p>
-  </div>
+        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-5">
+          <p className="text-green-300 text-sm">
+            Active
+          </p>
+          <p className="text-3xl font-bold text-green-400">
+            {activeCount}
+          </p>
+        </div>
 
-  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5">
-    <p className="text-blue-300 text-sm">
-      Completed
-    </p>
-    <p className="text-3xl font-bold text-blue-400">
-      {completedCount}
-    </p>
-  </div>
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5">
+          <p className="text-blue-300 text-sm">
+            Completed
+          </p>
+          <p className="text-3xl font-bold text-blue-400">
+            {completedCount}
+          </p>
+        </div>
 
-</div>
+      </div>
 
       {/* QUICK ACTIONS */}
       <div className="grid grid-cols-3 gap-4 mb-8">
@@ -230,30 +266,29 @@ startTime
                 {meeting.participants?.length || 0}
               </span>
 
-<span
-  className={`text-xs px-3 py-1 rounded-full font-medium capitalize ${
-    meeting.status === "scheduled"
-      ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
-      : meeting.status === "active"
-      ? "bg-green-500/15 text-green-300 border border-green-500/30"
-      : meeting.status === "completed"
-      ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
-      : meeting.status === "cancelled"
-      ? "bg-red-500/15 text-red-300 border border-red-500/30"
-      : "bg-gray-700 text-gray-300"
-  }`}
->
-  {meeting.status}
-</span>
+              <span
+                className={`text-xs px-3 py-1 rounded-full font-medium capitalize ${meeting.status === "scheduled"
+                  ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+                  : meeting.status === "active"
+                    ? "bg-green-500/15 text-green-300 border border-green-500/30"
+                    : meeting.status === "completed"
+                      ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                      : meeting.status === "cancelled"
+                        ? "bg-red-500/15 text-red-300 border border-red-500/30"
+                        : "bg-gray-700 text-gray-300"
+                  }`}
+              >
+                {meeting.status}
+              </span>
 
               <button
                 onClick={() => {
-    if (meeting.host._id === user?._id) {
-      navigate(`/meetings/${meeting._id}`)
-    } else {
-      navigate(`/meetings/${meeting._id}/lobby`)
-    }
-  }}
+                  if (meeting.host._id === user?._id) {
+                    navigate(`/meetings/${meeting._id}`)
+                  } else {
+                    navigate(`/meetings/${meeting._id}/lobby`)
+                  }
+                }}
                 className="bg-blue-600 px-3 py-1 text-white rounded"
               >
                 Join
@@ -323,6 +358,44 @@ startTime
                 })
               }
             />
+
+            <label className="text-sm text-gray-300">
+              Is this a Team Meeting?
+            </label>
+
+            <select
+              className="w-full mb-3 p-2 bg-gray-800 text-white rounded"
+              value={newMeeting.isTeamMeeting}
+              onChange={(e) =>
+                setNewMeeting({
+                  ...newMeeting,
+                  isTeamMeeting: e.target.value,
+                })
+              }
+            >
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+
+            {newMeeting.isTeamMeeting === "yes" && (
+              <div className="mb-3">
+                <label className="text-sm text-gray-300">
+                  Team
+                </label>
+
+                <input
+                  className="w-full mt-1 p-2 bg-gray-800 text-white rounded"
+                  value={team?.name || ""}
+                  readOnly
+                />
+
+                {!team && (
+                  <p className="text-red-400 text-sm mt-2">
+                    You are not part of any team.
+                  </p>
+                )}
+              </div>
+            )}
 
             {formError && (
               <p className="text-red-400 text-sm mb-2">{formError}</p>

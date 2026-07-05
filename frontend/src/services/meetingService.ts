@@ -26,12 +26,13 @@ getMeetingByCode: async (meetingCode: string) => {
 },
 
   // Create a new meeting
-  createMeeting: async (data: {
-    title: string;
-    description?: string;
-    startTime: string;
-    duration?: number;
-  }) => {
+ createMeeting: async (data: {
+  title: string;
+  description?: string;
+  startTime: string;
+  duration?: number;
+  team?: string;
+}) => {
     const res = await api.post("/meetings", data);
     return res.data.meeting;
   },

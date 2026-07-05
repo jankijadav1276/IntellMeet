@@ -20,6 +20,7 @@ const createMeeting = async (
       description,
       startTime,
       duration,
+      team,
     } = req.body;
 
     if (!title) {
@@ -69,17 +70,31 @@ const createMeeting = async (
 
     const user = req.user as any;
 
-    // Find the creator's team
-    const team = await Team.findOne({
-      "members.user": user._id,
-    });
+    let selectedTeam = null;
 
-    if (!team) {
-      res.status(404).json({
-        success: false,
-        message: "You are not part of any team.",
-      });
-      return;
+    if (team) {
+      selectedTeam = await Team.findById(team);
+
+      if (!selectedTeam) {
+        res.status(404).json({
+          success: false,
+          message: "Team not found.",
+        });
+        return;
+      }
+
+      const isMember = selectedTeam.members.some(
+        (member: any) =>
+          member.user.toString() === user._id.toString()
+      );
+
+      if (!isMember) {
+        res.status(403).json({
+          success: false,
+          message: "You are not a member of this team.",
+        });
+        return;
+      }
     }
 
     const meetingCode = uuidv4();
@@ -89,7 +104,7 @@ const createMeeting = async (
       title,
       description,
       host: user._id,
-      team: team._id,
+      team: selectedTeam?._id,
       participants: [
         {
           user: user._id,
@@ -117,28 +132,30 @@ const createMeeting = async (
 
     await meeting.save();
 
-    const io = getIO();
+    if (selectedTeam) {
+      const io = getIO();
 
-    for (const member of team.members) {
+      for (const member of selectedTeam.members) {
 
-      // Skip meeting creator
-      if (member.user.toString() === user._id.toString()) {
-        continue;
+        // Skip meeting creator
+        if (member.user.toString() === user._id.toString()) {
+          continue;
+        }
+
+        const notification = await Notification.create({
+          user: member.user,
+          title: "New Meeting Created",
+          message: `${user.name} created the meeting "${meeting.title}".`,
+          type: "meeting_created",
+          referenceId: meeting._id,
+          referenceModel: "Meeting",
+        });
+
+        io.to(member.user.toString()).emit(
+          "new-notification",
+          notification
+        );
       }
-
-      const notification = await Notification.create({
-        user: member.user,
-        title: "New Meeting Created",
-        message: `${user.name} created the meeting "${meeting.title}".`,
-        type: "meeting_created",
-        referenceId: meeting._id,
-        referenceModel: "Meeting",
-      });
-
-      io.to(member.user.toString()).emit(
-        "new-notification",
-        notification
-      );
     }
 
     res.status(201).json({
