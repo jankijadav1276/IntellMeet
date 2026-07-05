@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from "react-router-dom"
 
+import LandingPage from "../pages/landing/LandingPage" 
 import LoginPage from "../pages/auth/LoginPage"
-import SignupPage from "../pages/auth/SignUpPage"
+//  FIXED: Component variable renamed to matching uppercase 'SignUpPage' to match disk structure perfectly
+import SignUpPage from "../pages/auth/SignUpPage"
 
 import DashboardPage from "../pages/dashboard/DashboardPage"
 
@@ -48,11 +50,11 @@ export default function AppRoutes() {
     <Routes>
 
       {/* PUBLIC ROUTES */}
+      <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-      <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
-
-      {/* ROOT */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      
+      {/*  FIXED: Updated component element tag to 'SignUpPage' */}
+      <Route path="/signup" element={<PublicRoute><SignUpPage /></PublicRoute>} />
 
       {/* DASHBOARD */}
       <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
@@ -60,52 +62,53 @@ export default function AppRoutes() {
       {/* MEETINGS */}
       <Route path="/meetings" element={<PrivateRoute><MeetingsPage /></PrivateRoute>} />
       <Route path="/meetings/create" element={<PrivateRoute><CreateMeetingPage /></PrivateRoute>} />
-<Route path="/meetings/join" element={<PrivateRoute><JoinMeetingPage /></PrivateRoute>} />
+      <Route path="/meetings/join" element={<PrivateRoute><JoinMeetingPage /></PrivateRoute>} />
 
-{/* Shared meeting link */}
-<Route
-  path="/join/:meetingCode"
-  element={
-    <PrivateRoute>
-      <MeetingLobbyPage />
-    </PrivateRoute>
-  }
-/>
+      {/* Shared meeting link */}
+      <Route
+        path="/join/:meetingCode"
+        element={
+          <PrivateRoute>
+            <MeetingLobbyPage />
+          </PrivateRoute>
+        }
+      />
 
-<Route path="/meetings/history" element={<PrivateRoute><MeetingHistoryPage /></PrivateRoute>} />
+      <Route path="/meetings/history" element={<PrivateRoute><MeetingHistoryPage /></PrivateRoute>} />
 
       <Route path="/meetings/:id/lobby" element={<PrivateRoute><MeetingLobbyPage /></PrivateRoute>} />
       <Route path="/meetings/:id" element={<PrivateRoute><MeetingRoomPage /></PrivateRoute>} />
 
-<Route
-  path="/meetings/:id/processing"
-  element={
-    <PrivateRoute>
-      <MeetingProcessingPage />
-    </PrivateRoute>
-  }
-/>
+      <Route
+        path="/meetings/:id/processing"
+        element={
+          <PrivateRoute>
+            <MeetingProcessingPage />
+          </PrivateRoute>
+        }
+      />
 
-<Route
-  path="/meetings/:id/summary"
-  element={
-    <PrivateRoute>
-      <MeetingSummaryPage />
-    </PrivateRoute>
-  }
-/>
-<Route
-  path="/meetings/:id/chat"
-  element={
-    <PrivateRoute>
-      <MeetingChatHistoryPage />
-    </PrivateRoute>
-  }
-/>
-<Route
-  path="/meetings/:id/transcript"
-  element={<MeetingTranscriptPage />}
-/>
+      <Route
+        path="/meetings/:id/summary"
+        element={
+          <PrivateRoute>
+            <MeetingSummaryPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/meetings/:id/chat"
+        element={
+          <PrivateRoute>
+            <MeetingChatHistoryPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/meetings/:id/transcript"
+        element={<PrivateRoute><MeetingTranscriptPage /></PrivateRoute>}
+      />
+
       {/* RECORDINGS */}
       <Route path="/recordings" element={<PrivateRoute><RecordingsPage /></PrivateRoute>} />
       <Route path="/recordings/:id" element={<PrivateRoute><RecordingDetailsPage /></PrivateRoute>} />
