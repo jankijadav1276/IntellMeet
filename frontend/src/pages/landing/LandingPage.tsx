@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import  { useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   ArrowRight, 
-  Shield, 
-  Zap, 
+  Shield,  
   BarChart2, 
   Video, 
   Users, 
