@@ -1,5 +1,11 @@
 import { useNavigate, useParams } from "react-router-dom"
-import { Hand, Loader2, WifiOff } from "lucide-react"
+import {
+  Hand,
+  Loader2,
+  WifiOff,
+  Pin,
+  PinOff,
+} from "lucide-react"
 import { useEffect, useMemo, useState, useRef } from "react"
 import { useSocket } from "../../hooks/useSocket"
 
@@ -14,7 +20,6 @@ import { useWebRTC } from "../../hooks/useWebRTC"
 import useAuthStore from "../../store/authStore"
 import { useChatStore } from "../../store/chatStore"
 import meetingService from "../../services/meetingService"
-
 
 function formatTime(seconds: number) {
   const mins = Math.floor(seconds / 60)
@@ -33,7 +38,7 @@ export default function MeetingRoomPage() {
   }, [id, navigate])
 
   const { user } = useAuthStore()
-const [meetingCode, setMeetingCode] = useState("")
+  const [meetingCode, setMeetingCode] = useState("")
   const {
     socket,
     transferHost,
@@ -47,6 +52,7 @@ const [meetingCode, setMeetingCode] = useState("")
   const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null)
   const [showChat, setShowChat] = useState(false)
   const [showTranscript, setShowTranscript] = useState(false)
+  const [pinnedParticipant, setPinnedParticipant] = useState<string | null>(null)
 
   const recognitionRef = useRef<any>(null)
 
@@ -82,7 +88,6 @@ const [meetingCode, setMeetingCode] = useState("")
   const [recordingTime, setRecordingTime] = useState(0)
   const [isRecordingActive, setIsRecordingActive] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
- 
 
   const {
     localStream,
@@ -102,21 +107,21 @@ const [meetingCode, setMeetingCode] = useState("")
     error: webrtcError,
   } = useWebRTC(id, socket)
 
+  useEffect(() => {
+    async function loadMeeting() {
+      if (!id) return
 
-useEffect(() => {
-  async function loadMeeting() {
-    if (!id) return
-
-    try {
-      const meeting = await meetingService.getMeetingById(id)
-      setMeetingCode(meeting.meetingCode)
-    } catch (err) {
-      console.error(err)
+      try {
+        const meeting = await meetingService.getMeetingById(id)
+        setMeetingCode(meeting.meetingCode)
+      } catch (err) {
+        console.error(err)
+      }
     }
-  }
 
-  loadMeeting()
-}, [id])
+    loadMeeting()
+  }, [id])
+
   /* ================= SOCKET EVENTS ================= */
   useEffect(() => {
     if (!socket) return
@@ -125,8 +130,8 @@ useEffect(() => {
       useChatStore.getState().setMessages(history || [])
     })
 
-        socket.on("receiveMessage",  (msg) => {
-          useChatStore.getState().addMessage(msg)
+    socket.on("receiveMessage", (msg) => {
+      useChatStore.getState().addMessage(msg)
 
       if (!showChat && msg.userId !== user?._id) {
         setUnreadCount((prev) => prev + 1)
@@ -146,7 +151,6 @@ useEffect(() => {
       }
     })
 
-
     // ================= REACTIONS =================
     socket.on("reaction-received", (data) => {
       console.log("📥 Reaction received:", data);
@@ -165,7 +169,7 @@ useEffect(() => {
           prev.filter((r) => r.id !== id)
         )
       }, 2500)
-        })
+    })
 
     socket.on("live-transcript", (data) => {
       setTranscripts((prev) => [
@@ -204,37 +208,37 @@ useEffect(() => {
     }
 
     // ================= MEETING ENDED =================
-const handleMeetingEnded = () => {
-  leaveCall()
+    const handleMeetingEnded = () => {
+      leaveCall()
 
-  const hasTranscript =
-    transcripts.length > 0
+      const hasTranscript =
+        transcripts.length > 0
 
-  const hasChat =
-    useChatStore.getState().messages.length > 0
+      const hasChat =
+        useChatStore.getState().messages.length > 0
 
-  const shouldGenerateSummary =
-    hasTranscript || hasChat
+      const shouldGenerateSummary =
+        hasTranscript || hasChat
 
-  if (shouldGenerateSummary) {
-    if (isHost) {
-      alert("Meeting ended. Generating AI insights...")
-      navigate(`/meetings/${id}/processing`, {
-        replace: true,
-      })
-    } else {
-      alert("Meeting ended.")
-      navigate("/dashboard", {
-        replace: true,
-      })
+      if (shouldGenerateSummary) {
+        if (isHost) {
+          alert("Meeting ended. Generating AI insights...")
+          navigate(`/meetings/${id}/processing`, {
+            replace: true,
+          })
+        } else {
+          alert("Meeting ended.")
+          navigate("/dashboard", {
+            replace: true,
+          })
+        }
+      } else {
+        alert("Meeting ended.")
+        navigate("/dashboard", {
+          replace: true,
+        })
+      }
     }
-  } else {
-    alert("Meeting ended.")
-    navigate("/dashboard", {
-      replace: true,
-    })
-  }
-}
 
     // ================= HOST TRANSFER =================
     const handleHostTransfer = (data: any) => {
@@ -274,10 +278,9 @@ const handleMeetingEnded = () => {
 
     // ================= EVENT BIND =================
     socket.on("room-update", syncRoom)
-    socket.on("user-left",data => {
+    socket.on("user-left", data => {
       console.log("User left:", data)
-    }
-)
+    })
     socket.on("hand-update", syncRoom)
 
     socket.on(
@@ -323,9 +326,6 @@ const handleMeetingEnded = () => {
     })
 
     console.log("Current reactions:", reactions);
-
-    // ❌ REMOVE THIS (NOT USED IN BACKEND)
-    // socket.on("user-joined", syncParticipants)
 
     return () => {
       socket.off("room-update", syncRoom)
@@ -437,7 +437,7 @@ const handleMeetingEnded = () => {
     return Boolean(user?._id && hostUserId === user._id)
   }, [hostUserId, user?._id])
 
-const inviteLink = `${window.location.origin}/join/${meetingCode}`
+  const inviteLink = `${window.location.origin}/join/${meetingCode}`
 
   /* ================= PARTICIPANTS ================= */
   const sidebarParticipants = useMemo(() => {
@@ -453,33 +453,53 @@ const inviteLink = `${window.location.origin}/join/${meetingCode}`
   }, [participants])
 
   /* ================= UNIQUE PEERS MAP ================= */
-const uniquePeersMap = useMemo(() => {
-  const map = new Map<string, typeof remotePeers[number]>()
+  const uniquePeersMap = useMemo(() => {
+    const map = new Map<string, typeof remotePeers[number]>()
 
-  for (const peer of remotePeers) {
-    if (!peer.peerId) continue
+    for (const peer of remotePeers) {
+      if (!peer.peerId) continue
 
-    const existing = map.get(peer.peerId)
+      const existing = map.get(peer.peerId)
 
-    if (!existing) {
-      map.set(peer.peerId, peer)
-      continue
+      if (!existing) {
+        map.set(peer.peerId, peer)
+        continue
+      }
+
+      if (!existing.stream && peer.stream) {
+        map.set(peer.peerId, peer)
+      }
     }
 
-    // Always keep stream if available
-    if (!existing.stream && peer.stream) {
-      map.set(peer.peerId, peer)
-    }
-  }
-
-  return map
-}, [remotePeers])
+    return map
+  }, [remotePeers])
 
   /* ================= REMOTE PARTICIPANTS GRID LIST ================= */
-const remoteParticipants = useMemo(() => {
-  return participants
-    .filter(p => p.socketId !== socket?.id)
-}, [participants, socket?.id])
+  const remoteParticipants = useMemo(() => {
+    return participants.filter(p => p.socketId !== socket?.id)
+  }, [participants, socket?.id])
+
+  const pinnedRemote = useMemo(() => {
+    return remoteParticipants.find(p => p.socketId === pinnedParticipant) || null
+  }, [remoteParticipants, pinnedParticipant])
+
+  const isLocalPinned = useMemo(() => {
+    return pinnedParticipant === socket?.id
+  }, [pinnedParticipant, socket?.id])
+
+  const otherParticipants = useMemo(() => {
+    return remoteParticipants.filter(p => p.socketId !== pinnedParticipant)
+  }, [remoteParticipants, pinnedParticipant])
+
+  useEffect(() => {
+    if (
+      pinnedParticipant &&
+      pinnedParticipant !== socket?.id &&
+      !participants.some((p) => p.socketId === pinnedParticipant)
+    ) {
+      setPinnedParticipant(null)
+    }
+  }, [participants, pinnedParticipant, socket?.id])
 
   /* ================= HAND SYNC ================= */
   useEffect(() => {
@@ -506,8 +526,6 @@ const remoteParticipants = useMemo(() => {
                 🔴 Recording • {formatTime(recordingTime)}
               </span>
             )}
-
-
           </div>
           <div className="text-xs text-gray-500">ID: {id}</div>
         </div>
@@ -536,56 +554,167 @@ const remoteParticipants = useMemo(() => {
 
           {/* VIDEO GRID */}
           <div className="xl:col-span-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {pinnedParticipant ? (
+              <div className="space-y-4">
+                {/* Pinned main spotlight stage */}
+                <div className="relative h-[500px]">
+                  {isLocalPinned ? (
+                    <VideoTile
+                      name={user?.name ?? "You"}
+                      stream={localStream}
+                      isLocal
+                      isHost={isHost}
+                      micOn={micOn}
+                      cameraOn={cameraOn}
+                      isActiveSpeaker={activeSpeaker === socket?.id}
+                    />
+                  ) : (
+                    pinnedRemote && (
+                      <VideoTile
+                        name={pinnedRemote.name}
+                        stream={uniquePeersMap.get(pinnedRemote.socketId)?.stream ?? null}
+                        micOn={pinnedRemote.micOn}
+                        cameraOn={pinnedRemote.cameraOn}
+                        isHost={pinnedRemote.isHost}
+                        isActiveSpeaker={activeSpeaker === pinnedRemote.socketId}
+                      />
+                    )
+                  )}
 
-              {/* Local User Camera Tile */}
-              <div className="relative">
-                <VideoTile
-                  name={user?.name ?? "You"}
-                  stream={localStream}
-                  isLocal
-                  isHost={isHost}
-                  micOn={micOn}
-                  cameraOn={cameraOn}
-                  isActiveSpeaker={activeSpeaker === socket?.id}
-                />
+                  {/* Unpin button sits safely in the top-right corner */}
+                  <button
+                    onClick={() => setPinnedParticipant(null)}
+                    className="absolute top-3 right-3 z-20 bg-black/70 hover:bg-black/90 p-2.5 rounded-full backdrop-blur-sm transition border border-white/10"
+                    aria-label="Unpin Participant"
+                  >
+                    <PinOff className="w-4 h-4 text-white" />
+                  </button>
+                </div>
 
-                {isScreenSharing && (
-                  <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-lg">
-                    Sharing Screen
+                {/* Remaining participants thumbnail strip below spotlight view */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {/* Show local track in strip if someone else is pinned */}
+                  {!isLocalPinned && (
+                    <div className="relative group">
+                      <VideoTile
+                        name={user?.name ?? "You"}
+                        stream={localStream}
+                        isLocal
+                        isHost={isHost}
+                        micOn={micOn}
+                        cameraOn={cameraOn}
+                        isActiveSpeaker={activeSpeaker === socket?.id}
+                      />
+                      {/* Fixed: Moved to top-left corner */}
+                      <button
+                        onClick={() => setPinnedParticipant(socket?.id || null)}
+                        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 bg-black/60 hover:bg-black p-2 rounded-md transition z-20"
+                        aria-label="Pin Local Participant"
+                      >
+                        <Pin className="w-3.5 h-3.5 text-white" />
+                      </button>
+                    </div>
+                  )}
+
+                  {otherParticipants.map((participant) => {
+                    const matchedPeer = uniquePeersMap.get(participant.socketId)
+
+                    return (
+                      <div key={participant.socketId} className="relative group">
+                        <VideoTile
+                          name={participant.name}
+                          stream={matchedPeer?.stream ?? null}
+                          micOn={participant.micOn}
+                          cameraOn={participant.cameraOn}
+                          isHost={participant.isHost}
+                          isActiveSpeaker={activeSpeaker === participant.socketId}
+                        />
+
+                        {/* Fixed: Moved to top-left corner */}
+                        <button
+                          onClick={() => setPinnedParticipant(participant.socketId)}
+                          className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 bg-black/60 hover:bg-black p-2 rounded-md transition z-20"
+                          aria-label="Pin Participant"
+                        >
+                          <Pin className="w-3.5 h-3.5 text-white" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* Uniform default balanced gallery view */
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="relative group">
+                  <VideoTile
+                    name={user?.name ?? "You"}
+                    stream={localStream}
+                    isLocal
+                    isHost={isHost}
+                    micOn={micOn}
+                    cameraOn={cameraOn}
+                    isActiveSpeaker={activeSpeaker === socket?.id}
+                  />
+
+                  {isScreenSharing && (
+                    <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-lg z-20">
+                      Sharing Screen
+                    </div>
+                  )}
+
+                  {/* Fixed: Moved to top-left corner (pushed below the screen sharing badge if active) */}
+                  <button
+                    onClick={() => setPinnedParticipant(socket?.id || null)}
+                    className={`absolute opacity-0 group-hover:opacity-100 bg-black/60 hover:bg-black p-2 rounded-md transition z-20 ${
+                      isScreenSharing ? "top-10 left-2" : "top-2 left-2"
+                    }`}
+                    aria-label="Pin Local Participant"
+                  >
+                    <Pin className="w-3.5 h-3.5 text-white" />
+                  </button>
+                </div>
+
+                {isConnecting && !localStream && (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl h-64 flex items-center justify-center gap-2 text-gray-400">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Connecting camera...
+                  </div>
+                )}
+
+                {remoteParticipants.map((participant) => {
+                  const matchedPeer = uniquePeersMap.get(participant.socketId)
+
+                  return (
+                    <div key={participant.socketId} className="relative group">
+                      <VideoTile
+                        name={participant.name}
+                        stream={matchedPeer?.stream ?? null}
+                        micOn={participant.micOn}
+                        cameraOn={participant.cameraOn}
+                        isHost={participant.isHost}
+                        isActiveSpeaker={activeSpeaker === participant.socketId}
+                      />
+
+                      {/* Fixed: Moved to top-left corner */}
+                      <button
+                        onClick={() => setPinnedParticipant(participant.socketId)}
+                        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 bg-black/60 hover:bg-black p-2 rounded-md transition z-20"
+                        aria-label="Pin Participant"
+                      >
+                        <Pin className="w-3.5 h-3.5 text-white" />
+                      </button>
+                    </div>
+                  )
+                })}
+
+                {participants.length <= 1 && !isConnecting && (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl h-64 flex items-center justify-center text-gray-500">
+                    Waiting for others to join...
                   </div>
                 )}
               </div>
-
-              {isConnecting && !localStream && (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl h-64 flex items-center justify-center gap-2 text-gray-400">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Connecting camera...
-                </div>
-              )}
-
-              {/* FIXED: Map over remote participants list from server state to lock grid structure */}
-              {remoteParticipants.map((participant) => {
-                const matchedPeer = uniquePeersMap.get(participant.socketId)
-                return (
-<VideoTile
-  key={participant.socketId}
-  name={participant.name}
-  stream={matchedPeer?.stream ?? null}
-  micOn={participant.micOn}
-  cameraOn={participant.cameraOn}
-  isHost={participant.isHost}
-  isActiveSpeaker={activeSpeaker === participant.socketId}
-/>
-                )
-              })}
-
-              {participants.length <= 1 && !isConnecting && (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl h-64 flex items-center justify-center text-gray-500">
-                  Waiting for others to join...
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* SIDEBAR */}
@@ -593,25 +722,24 @@ const remoteParticipants = useMemo(() => {
             <MeetingTimer />
 
             {/* ================= WAITING ROOM ================= */}
-
             {isHost && waitingParticipants.length > 0 && (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
-  <h3 className="text-sm font-semibold text-white">
-    Waiting Room ({waitingParticipants.length})
-  </h3>
+                  <h3 className="text-sm font-semibold text-white">
+                    Waiting Room ({waitingParticipants.length})
+                  </h3>
 
-  <button
-    onClick={() =>
-      socket?.emit("approve-all-participants", {
-        meetingId: id,
-      })
-    }
-    className="px-3 py-1 rounded bg-green-600 hover:bg-green-500 text-xs text-white"
-  >
-    Admit All
-  </button>
-</div>
+                  <button
+                    onClick={() =>
+                      socket?.emit("approve-all-participants", {
+                        meetingId: id,
+                      })
+                    }
+                    className="px-3 py-1 rounded bg-green-600 hover:bg-green-500 text-xs text-white"
+                  >
+                    Admit All
+                  </button>
+                </div>
 
                 <div className="space-y-2">
                   {waitingParticipants.map((participant: any) => (
@@ -677,7 +805,7 @@ const remoteParticipants = useMemo(() => {
                 meetingId={id}
               />
             )}
- 
+
             {showTranscript && (
               <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto">
                 <h3 className="text-white font-semibold mb-3">
@@ -702,7 +830,6 @@ const remoteParticipants = useMemo(() => {
                 )}
               </div>
             )}
-            
           </div>
         </div>
 
@@ -722,10 +849,9 @@ const remoteParticipants = useMemo(() => {
             }}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${handRaised
               ? "bg-yellow-500 text-black"
-              : "bg-gray-800 text-white hover:bg-gray-700"
-              }`}
+              : "bg-gray-880 bg-gray-800 text-white hover:bg-gray-700"
+            }`}
           >
-
             <Hand className="w-4 h-4" />
             {handRaised ? "Hand Raised" : "Raise Hand"}
           </button>
@@ -760,16 +886,15 @@ const remoteParticipants = useMemo(() => {
         {/* LIVE REACTIONS */}
         <div className="pointer-events-none fixed inset-0 overflow-hidden z-50">
           {reactions.map((reaction) => (
-           <div
-           
-            key={reaction.id}
-            className="absolute bottom-8 text-5xl reaction-float"
-            style={{
-            left: `calc(50% + ${Math.random() * 250 - 125}px)`,
-            }}
+            <div
+              key={reaction.id}
+              className="absolute bottom-8 text-5xl reaction-float"
+              style={{
+                left: `calc(50% + ${Math.random() * 250 - 125}px)`,
+              }}
             >
-            {reaction.emoji}
-          </div>
+              {reaction.emoji}
+            </div>
           ))}
         </div>
 
@@ -784,7 +909,8 @@ const remoteParticipants = useMemo(() => {
             </p>
           </div>
         )}
-        {/* CONTROLS (ONLY ONE ACTION NOW) */}
+
+        {/* CONTROLS */}
         <MeetingControls
           micOn={micOn}
           cameraOn={cameraOn}
@@ -792,18 +918,13 @@ const remoteParticipants = useMemo(() => {
           onToggleCamera={toggleCamera}
           onLeave={handleLeave}
           isHost={isHost}
-
           meetingId={id || ""}
-
           socket={socket}
-
           isScreenSharing={isScreenSharing}
           onToggleScreenShare={toggleScreenShare}
-
           onEndMeeting={() => {
             const ok = window.confirm("End meeting for everyone?")
             if (!ok) return
-
             endMeeting()
           }}
         />
