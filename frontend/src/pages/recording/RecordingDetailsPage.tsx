@@ -29,6 +29,8 @@ export default function RecordingDetailsPage() {
     enabled: !!id,
   })
 
+  const backendUrl = import.meta.env.VITE_API_URL.replace("/api", "")
+
   if (isLoading) {
     return (
       <Layout title="Recording" subtitle="Loading recording details">
@@ -117,7 +119,7 @@ export default function RecordingDetailsPage() {
 
         {recording.videoUrl && (
           <a
-           href={`http://localhost:5000${recording.videoUrl}`} 
+           href={`${backendUrl}${recording.videoUrl}`}
             target="_blank"
             rel="noreferrer"
             className="
@@ -210,7 +212,7 @@ export default function RecordingDetailsPage() {
     className="w-full rounded-xl"
   >
     <source
-      src={`http://localhost:5000${recording.videoUrl}`}
+      src={`${backendUrl}${recording.videoUrl}`}
       type="video/webm"
     />
   </video>
